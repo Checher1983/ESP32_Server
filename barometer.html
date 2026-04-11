@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Барометр - ESP32</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; margin-top: 15px; font-family: sans-serif; }
         .btn:hover { background-color: #28a745; }
@@ -29,7 +29,9 @@
     </main>
 
     <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            clientId: 'WebClient_Baro_' + Math.random().toString(16).substr(2, 8)
+        });
         let lastUpdate = Date.now();
 
         client.on('connect', () => {
@@ -40,6 +42,7 @@
         client.on('message', (topic, message) => {
             lastUpdate = Date.now();
             const data = message.toString().split('|');
+            // Очікуємо формат: Дата Час | Temp | Hum | Pres
             if(data.length >= 4) {
                 document.getElementById('temp').innerText = data[1].trim();
                 document.getElementById('hum').innerText = data[2].trim();
@@ -47,7 +50,6 @@
             }
         });
 
-        // Перевірка на "No Data" кожні 5 секунд
         setInterval(() => {
             if (Date.now() - lastUpdate > 15000) {
                 document.getElementById('temp').innerText = 'No Data';
