@@ -12,12 +12,11 @@
             font-weight: bold; width: 260px; display: inline-block;
             transition: 0.3s; text-align: center; cursor: pointer;
             font-family: sans-serif;
-            /* ВИПРАВЛЕНО: Заборона виділення тексту */
             user-select: none; -webkit-user-select: none;
         }
         .btn:hover { background-color: #28a745; }
         .btn:active { background-color: yellow; color: #21B1FF; }
-        #status { font-size: 10px; font-weight: bold; margin-top: 20px; font-family: sans-serif; }
+        #status { font-size: 11px; font-weight: bold; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
@@ -32,37 +31,53 @@
             <div class="btn">Живлення Raspberry Pi 5</div>
             <div class="btn">Статистика відключень</div>
         </div>
-        <p id="status" style="color: gray;">Статус: Очікування...</p>
+        <p id="status" style="color: gray;">Статус: Очікування даних...</p>
     </main>
 
     <script>
+        let lastUpdate = 0; // Час останнього сигналу від ESP32
+        const statusEl = document.getElementById('status');
+        const dateEl = document.getElementById('date-val');
+        const timeEl = document.getElementById('time-val');
+
         function startMQTT() {
             const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
                 clientId: 'WebClient_Index_' + Math.random().toString(16).substr(2, 8)
             });
             const topic = '7091003_Checher_ESP32/status';
-            const statusEl = document.getElementById('status');
 
             client.on('connect', () => {
-                statusEl.innerText = "Статус: Онлайн";
-                statusEl.style.color = "#08DD08"; // Яскраво-зелений
                 client.subscribe(topic);
+                // При підключенні до брокера не ставимо відразу "Онлайн", 
+                // чекаємо першого реального повідомлення від плати
             });
 
             client.on('message', (t, message) => {
+                lastUpdate = Date.now(); // Оновили час отримання даних
                 const payload = message.toString();
+                
+                // Ставимо статус "Онлайн" тільки коли прийшли дані
+                statusEl.innerText = "Статус: Онлайн";
+                statusEl.style.color = "#08DD08";
+
                 const parts = payload.includes('|') ? payload.split('|')[0].trim().split(' ') : payload.split(' ');
                 if(parts.length >= 2) {
-                    document.getElementById('date-val').innerText = parts[0];
-                    document.getElementById('time-val').innerText = parts[1];
+                    dateEl.innerText = parts[0];
+                    timeEl.innerText = parts[1];
                 }
             });
-
-            client.on('offline', () => {
-                statusEl.innerText = "Статус: Офлайн (Мережа)";
-                statusEl.style.color = "red";
-            });
         }
+
+        // Перевірка активності плати кожні 5 секунд
+        setInterval(() => {
+            if (lastUpdate !== 0 && Date.now() - lastUpdate > 15000) {
+                statusEl.innerText = "Статус: Офлайн (ESP32 вимкнена)";
+                statusEl.style.color = "red";
+                dateEl.innerText = "...";
+                timeEl.innerText = "...";
+            }
+        }, 5000);
+
         window.onload = () => { if (typeof mqtt !== 'undefined') startMQTT(); };
     </script>
 </body>
