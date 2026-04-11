@@ -6,17 +6,22 @@
     <title>ESP32 Server Index</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
+        /* Заборона виділення тексту для всього додатка */
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
         .btn {
             text-decoration: none; background-color: #21B1FF; color: yellow; 
             padding: 12px 10px; border-radius: 8px; border: 2px solid black; 
             font-weight: bold; width: 260px; display: inline-block;
             transition: 0.3s; text-align: center; cursor: pointer;
             font-family: sans-serif;
-            user-select: none; -webkit-user-select: none;
         }
         .btn:hover { background-color: #28a745; }
         .btn:active { background-color: yellow; color: #21B1FF; }
-        #status { font-size: 11px; font-weight: bold; margin-top: 20px; font-family: sans-serif; }
+        #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
@@ -31,14 +36,15 @@
             <div class="btn">Живлення Raspberry Pi 5</div>
             <div class="btn">Статистика відключень</div>
         </div>
-        <p id="status" style="color: gray;">Статус: Очікування даних...</p>
+        <div id="status-footer">Статус: <span id="mqtt-status">Підключення...</span></div>
     </main>
 
     <script>
-        let lastUpdate = 0; // Час останнього сигналу від ESP32
-        const statusEl = document.getElementById('status');
+        const statusText = document.getElementById('mqtt-status');
         const dateEl = document.getElementById('date-val');
         const timeEl = document.getElementById('time-val');
+        
+        let lastUpdate = Date.now(); // Починаємо відлік з моменту завантаження
 
         function startMQTT() {
             const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
@@ -48,19 +54,16 @@
 
             client.on('connect', () => {
                 client.subscribe(topic);
-                // При підключенні до брокера не ставимо відразу "Онлайн", 
-                // чекаємо першого реального повідомлення від плати
             });
 
             client.on('message', (t, message) => {
-                lastUpdate = Date.now(); // Оновили час отримання даних
-                const payload = message.toString();
-                
-                // Ставимо статус "Онлайн" тільки коли прийшли дані
-                statusEl.innerText = "Статус: Онлайн";
-                statusEl.style.color = "#08DD08";
+                lastUpdate = Date.now();
+                statusText.innerText = 'Онлайн';
+                statusText.parentElement.style.color = '#08DD08';
 
+                const payload = message.toString();
                 const parts = payload.includes('|') ? payload.split('|')[0].trim().split(' ') : payload.split(' ');
+                
                 if(parts.length >= 2) {
                     dateEl.innerText = parts[0];
                     timeEl.innerText = parts[1];
@@ -68,13 +71,13 @@
             });
         }
 
-        // Перевірка активності плати кожні 5 секунд
+        // Алгоритм перевірки як у барометрі
         setInterval(() => {
-            if (lastUpdate !== 0 && Date.now() - lastUpdate > 15000) {
-                statusEl.innerText = "Статус: Офлайн (ESP32 вимкнена)";
-                statusEl.style.color = "red";
+            if (Date.now() - lastUpdate > 15000) {
                 dateEl.innerText = "...";
                 timeEl.innerText = "...";
+                statusText.innerText = 'Офлайн (ESP32 вимкнена)';
+                statusText.parentElement.style.color = 'red';
             }
         }, 5000);
 
