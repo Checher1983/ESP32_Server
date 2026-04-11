@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Барометр - ESP32</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; margin-top: 15px; font-family: sans-serif; }
+        .btn:hover { background-color: #28a745; }
+        .sensor-label { color: black; margin: 15px 0; font-family: sans-serif; }
+        .sensor-value { color: red; font-weight: bold; }
+        #status-footer { font-size: 12px; color: gray; margin-top: 20px; }
+    </style>
+</head>
+<body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
+    <main style="text-align: center; padding: 20px;">
+        <h1>БАРОМЕТР</h1>
+        <div style="margin: 30px 0;">
+            <h3 class="sensor-label">Температура: <span id="temp" class="sensor-value">...</span> °C</h3>
+            <h3 class="sensor-label">Відносна вологість: <span id="hum" class="sensor-value">...</span> %</h3>
+            <h3 class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм. рт. ст.</h3>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <a href="logs.html" class="btn">Журнал та графіки</a>
+            <a href="index.html" class="btn">На головну</a>
+        </div>
+        <div id="status-footer">Статус: <span id="mqtt-status">Підключення...</span></div>
+    </main>
+
+    <script>
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        let lastUpdate = Date.now();
+
+        client.on('connect', () => {
+            document.getElementById('mqtt-status').innerText = 'Онлайн';
+            client.subscribe('7091003_Checher_ESP32/status');
+        });
+
+        client.on('message', (topic, message) => {
+            lastUpdate = Date.now();
+            const data = message.toString().split('|');
+            if(data.length >= 4) {
+                document.getElementById('temp').innerText = data[1].trim();
+                document.getElementById('hum').innerText = data[2].trim();
+                document.getElementById('pres').innerText = data[3].trim();
+            }
+        });
+
+        // Перевірка на "No Data" кожні 5 секунд
+        setInterval(() => {
+            if (Date.now() - lastUpdate > 15000) {
+                document.getElementById('temp').innerText = 'No Data';
+                document.getElementById('hum').innerText = 'No Data';
+                document.getElementById('pres').innerText = 'No Data';
+                document.getElementById('mqtt-status').innerText = 'Офлайн (ESP32 вимкнена)';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
