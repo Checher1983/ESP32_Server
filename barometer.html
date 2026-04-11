@@ -6,11 +6,19 @@
     <title>Барометр - ESP32</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
-        .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; margin-top: 15px; font-family: sans-serif; }
+        .btn { 
+            text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; 
+            border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; 
+            display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; 
+            margin-top: 15px; font-family: sans-serif;
+            /* ВИПРАВЛЕНО: Заборона виділення тексту */
+            user-select: none; -webkit-user-select: none;
+        }
         .btn:hover { background-color: #28a745; }
+        .btn:active { background-color: yellow; color: #21B1FF; }
         .sensor-label { color: black; margin: 15px 0; font-family: sans-serif; }
         .sensor-value { color: red; font-weight: bold; }
-        #status-footer { font-size: 12px; color: gray; margin-top: 20px; }
+        #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
@@ -29,20 +37,23 @@
     </main>
 
     <script>
+        const statusText = document.getElementById('mqtt-status');
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
             clientId: 'WebClient_Baro_' + Math.random().toString(16).substr(2, 8)
         });
         let lastUpdate = Date.now();
 
         client.on('connect', () => {
-            document.getElementById('mqtt-status').innerText = 'Онлайн';
+            statusText.innerText = 'Онлайн';
+            statusText.parentElement.style.color = '#08DD08'; // Зелений
             client.subscribe('7091003_Checher_ESP32/status');
         });
 
         client.on('message', (topic, message) => {
             lastUpdate = Date.now();
+            statusText.innerText = 'Онлайн';
+            statusText.parentElement.style.color = '#08DD08';
             const data = message.toString().split('|');
-            // Очікуємо формат: Дата Час | Temp | Hum | Pres
             if(data.length >= 4) {
                 document.getElementById('temp').innerText = data[1].trim();
                 document.getElementById('hum').innerText = data[2].trim();
@@ -55,7 +66,8 @@
                 document.getElementById('temp').innerText = 'No Data';
                 document.getElementById('hum').innerText = 'No Data';
                 document.getElementById('pres').innerText = 'No Data';
-                document.getElementById('mqtt-status').innerText = 'Офлайн (ESP32 вимкнена)';
+                statusText.innerText = 'Офлайн (ESP32 вимкнена)';
+                statusText.parentElement.style.color = 'red'; // Червоний
             }
         }, 5000);
     </script>
