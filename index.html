@@ -11,29 +11,28 @@
             padding: 12px 10px; border-radius: 8px; border: 2px solid black; 
             font-weight: bold; width: 260px; display: inline-block;
             transition: 0.3s; text-align: center; cursor: pointer;
-            font-family: sans-serif; margin-bottom: 5px;
+            font-family: sans-serif;
+            /* ВИПРАВЛЕНО: Заборона виділення тексту */
+            user-select: none; -webkit-user-select: none;
         }
         .btn:hover { background-color: #28a745; }
         .btn:active { background-color: yellow; color: #21B1FF; }
+        #status { font-size: 10px; font-weight: bold; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
-    
     <main style="text-align: center; padding: 20px;">
         <header>
             <h1 style="color: #333;">ESP32 SERVER</h1>
         </header>
-        
         <h3 style="color: black;">Дата: <span id="date-val" style="color: red; font-weight: bold;">...</span></h3>
         <h3 style="color: black; margin-bottom: 30px;">Час: <span id="time-val" style="color: red; font-weight: bold;">...</span></h3>
-        
         <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <a href="barometer.html" class="btn">Барометр</a>
             <div class="btn">Живлення Raspberry Pi 5</div>
             <div class="btn">Статистика відключень</div>
         </div>
-        
-        <p id="status" style="font-size: 10px; color: gray; margin-top: 20px;">Статус: Очікування...</p>
+        <p id="status" style="color: gray;">Статус: Очікування...</p>
     </main>
 
     <script>
@@ -42,32 +41,29 @@
                 clientId: 'WebClient_Index_' + Math.random().toString(16).substr(2, 8)
             });
             const topic = '7091003_Checher_ESP32/status';
+            const statusEl = document.getElementById('status');
 
             client.on('connect', () => {
-                document.getElementById('status').innerText = "Статус: Онлайн";
+                statusEl.innerText = "Статус: Онлайн";
+                statusEl.style.color = "#08DD08"; // Яскраво-зелений
                 client.subscribe(topic);
             });
 
             client.on('message', (t, message) => {
-                // Розділяємо рядок за символом "|" або пробілом
                 const payload = message.toString();
                 const parts = payload.includes('|') ? payload.split('|')[0].trim().split(' ') : payload.split(' ');
-                
                 if(parts.length >= 2) {
                     document.getElementById('date-val').innerText = parts[0];
                     document.getElementById('time-val').innerText = parts[1];
                 }
             });
-        }
 
-        window.onload = () => {
-            if (typeof mqtt !== 'undefined') {
-                startMQTT();
-            } else {
-                document.getElementById('status').innerText = "Помилка: Бібліотека MQTT не завантажена";
-                document.getElementById('status').style.color = "red";
-            }
-        };
+            client.on('offline', () => {
+                statusEl.innerText = "Статус: Офлайн (Мережа)";
+                statusEl.style.color = "red";
+            });
+        }
+        window.onload = () => { if (typeof mqtt !== 'undefined') startMQTT(); };
     </script>
 </body>
 </html>
