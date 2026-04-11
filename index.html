@@ -39,7 +39,9 @@
         // Функція запуску MQTT
         function startMQTT() {
             console.log("Підключаємось...");
-            const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+            const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+    clientId: 'WebClient_' + Math.random().toString(16).substr(2, 8)
+});
             const topic = '7091003_Checher_ESP32/status';
 
             client.on('connect', () => {
