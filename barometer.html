@@ -3,47 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Барометр - ESP32</title>
+    <title>Метеостанція - ESP32</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
+        * { user-select: none; -webkit-user-select: none; }
         .btn { 
             text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; 
             border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; 
             display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; 
-            margin-top: 15px; font-family: sans-serif; user-select: none; -webkit-user-select: none;
+            margin-top: 15px; font-family: sans-serif;
         }
         .btn:hover { background-color: #28a745; }
         .btn:active { background-color: yellow; color: #21B1FF; }
         .sensor-label { color: black; margin: 8px 0; font-family: sans-serif; font-size: 16px; }
         .sensor-value { color: red; font-weight: bold; }
-        .section-title { color: #21B1FF; margin-top: 20px; text-decoration: underline; font-size: 18px; }
+        .section-card { background: white; padding: 15px; border-radius: 12px; border: 1px solid #ccc; margin-bottom: 15px; }
+        .section-title { color: #21B1FF; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
         #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
-    <main style="text-align: center; padding: 20px; width: 100%; max-width: 400px;">
-        <h1 style="margin-bottom: 10px;">МЕТЕОСТАНЦІЯ</h1>
+    <main style="text-align: center; padding: 20px; width: 100%; max-width: 380px;">
+        <h1>МЕТЕОСТАНЦІЯ</h1>
         
-        <div style="margin-bottom: 15px; background: white; padding: 10px; border-radius: 10px; border: 1px solid #ccc;">
+        <div class="section-card">
             <div class="sensor-label">Дата: <span id="date" class="sensor-value">...</span></div>
             <div class="sensor-label">Час: <span id="time" class="sensor-value">...</span></div>
+            <div style="margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                <div class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм.рт.ст.</div>
+            </div>
         </div>
 
-        <div style="background: white; padding: 10px; border-radius: 10px; border: 1px solid #ccc; margin-bottom: 15px;">
-            <div class="section-title">КОРИДОР</div>
-            <div class="sensor-label">Температура: <span id="temp_kor" class="sensor-value">...</span> °C</div>
-            <div class="sensor-label">Вологість: <span id="hum_kor" class="sensor-value">...</span> %</div>
-            <div class="sensor-label">Тиск: <span id="pres_kor" class="sensor-value">...</span> мм.рт.ст.</div>
+        <div class="section-card">
+            <div class="section-title">КОРИДОР (BME280)</div>
+            <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
+            <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
         </div>
 
-        <div style="background: white; padding: 10px; border-radius: 10px; border: 1px solid #ccc;">
-            <div class="section-title">ВУЛИЦЯ</div>
-            <div class="sensor-label">Температура: <span id="temp_ext" class="sensor-value">...</span> °C</div>
-            <div class="sensor-label">Вологість: <span id="hum_ext" class="sensor-value">...</span> %</div>
-            <div class="sensor-label">Заряд батареї: <span id="bat_ext" class="sensor-value">...</span> %</div>
+        <div class="section-card">
+            <div class="section-title">ВУЛИЦЯ (ESP-NOW)</div>
+            <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
+            <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
+            <div class="sensor-label" style="font-size: 12px; color: #666;">Заряд батареї: <span id="bat_ext">...</span>%</div>
         </div>
 
-        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 20px;">
+        <div style="display: flex; flex-direction: column; align-items: center;">
             <a href="logs.html" class="btn">Журнал та графіки</a>
             <a href="index.html" class="btn">На головну</a>
         </div>
@@ -53,7 +57,7 @@
     <script>
         const statusText = document.getElementById('mqtt-status');
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-            clientId: 'Web_Station_' + Math.random().toString(16).substr(2, 8)
+            clientId: 'Web_Baro_' + Math.random().toString(16).substr(2, 8)
         });
         let lastUpdate = Date.now();
 
@@ -70,28 +74,28 @@
                 statusText.innerText = 'Онлайн';
                 statusText.parentElement.style.color = '#08DD08';
 
-                // Загальні дані
+                // Загальні
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
+                document.getElementById('pres').innerText = data.korydor.p;
 
-                // Коридор (BME280)
-                const tK = parseFloat(data.korydor.t);
-                document.getElementById('temp_kor').innerText = isNaN(tK) ? data.korydor.t : tK.toFixed(1);
-                document.getElementById('hum_kor').innerText = data.korydor.h;
-                document.getElementById('pres_kor').innerText = data.korydor.p;
+                // Коридор
+                const tk = parseFloat(data.korydor.t);
+                document.getElementById('t_kor').innerText = isNaN(tk) ? data.korydor.t : tk.toFixed(1);
+                document.getElementById('h_kor').innerText = data.korydor.h;
 
-                // Вулиця (ESP-NOW) - виведе "No Data" якщо BT вимкнена
-                const tE = parseFloat(data.vulytsia.t);
-                document.getElementById('temp_ext').innerText = isNaN(tE) ? data.vulytsia.t : tE.toFixed(1);
-                document.getElementById('hum_ext').innerText = data.vulytsia.h;
+                // Вулиця
+                const te = parseFloat(data.vulytsia.t);
+                document.getElementById('t_ext').innerText = isNaN(te) ? data.vulytsia.t : te.toFixed(1);
+                document.getElementById('h_ext').innerText = data.vulytsia.h;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
 
-            } catch (e) { console.error("JSON Error", e); }
+            } catch (e) { console.error("Parse error", e); }
         });
 
         setInterval(() => {
             if (Date.now() - lastUpdate > 15000) {
-                const ids = ['date','time','temp_kor','hum_kor','pres_kor','temp_ext','hum_ext','bat_ext'];
+                const ids = ['date','time','pres','t_kor','h_kor','t_ext','h_ext','bat_ext'];
                 ids.forEach(id => document.getElementById(id).innerText = 'No Data');
                 statusText.innerText = 'Офлайн (ESP32 вимкнена)';
                 statusText.parentElement.style.color = 'red';
