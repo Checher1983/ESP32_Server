@@ -44,34 +44,41 @@
         const dateEl = document.getElementById('date-val');
         const timeEl = document.getElementById('time-val');
         
-        let lastUpdate = Date.now(); // Починаємо відлік з моменту завантаження
+        let lastUpdate = Date.now();
 
         function startMQTT() {
+            // Підключення до брокера через WebSocket
             const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
                 clientId: 'WebClient_Index_' + Math.random().toString(16).substr(2, 8)
             });
-            const topic = '7091003_Checher_ESP32/status';
+            
+            // НОВИЙ ТОПІК ДЛЯ JSON
+            const topic = '7091003_Checher_ESP32/all_data';
 
             client.on('connect', () => {
                 client.subscribe(topic);
             });
 
             client.on('message', (t, message) => {
-                lastUpdate = Date.now();
-                statusText.innerText = 'Онлайн';
-                statusText.parentElement.style.color = '#08DD08';
+                try {
+                    // Парсинг JSON пакету
+                    const data = JSON.parse(message.toString());
+                    
+                    lastUpdate = Date.now();
+                    statusText.innerText = 'Онлайн';
+                    statusText.parentElement.style.color = '#08DD08';
 
-                const payload = message.toString();
-                const parts = payload.includes('|') ? payload.split('|')[0].trim().split(' ') : payload.split(' ');
-                
-                if(parts.length >= 2) {
-                    dateEl.innerText = parts[0];
-                    timeEl.innerText = parts[1];
+                    // Вивід дати та часу з JSON
+                    dateEl.innerText = data.date;
+                    timeEl.innerText = data.time;
+                    
+                } catch (e) {
+                    console.error("Помилка парсингу JSON:", e);
                 }
             });
         }
 
-        // Алгоритм перевірки як у барометрі
+        // Перевірка активності (якщо даних немає більше 15 секунд)
         setInterval(() => {
             if (Date.now() - lastUpdate > 15000) {
                 dateEl.innerText = "...";
@@ -81,7 +88,9 @@
             }
         }, 5000);
 
-        window.onload = () => { if (typeof mqtt !== 'undefined') startMQTT(); };
+        window.onload = () => { 
+            if (typeof mqtt !== 'undefined') startMQTT(); 
+        };
     </script>
 </body>
 </html>
