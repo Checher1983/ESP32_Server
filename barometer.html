@@ -18,45 +18,45 @@
         .sensor-label { color: black; margin: 8px 0; font-family: sans-serif; font-size: 16px; }
         .sensor-value { color: red; font-weight: bold; }
         
-        /* Змінено фон карток на жовтий */
+        /* КОЛІР ЗІ СКРИНШОТУ */
         .section-card { 
-            background: #FFFFE0; /* LightYellow */
+            background: #B2F2BB; 
             padding: 15px; 
-            border-radius: 12px; 
-            border: 1px solid #ccc; 
+            border-radius: 20px; 
+            border: 1px solid #99d9a4; 
             margin-bottom: 15px; 
         }
         
-        .section-title { color: #21B1FF; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
+        .section-title { color: #21B1FF; font-weight: bold; margin-bottom: 10px; text-decoration: underline; text-transform: uppercase; }
         #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
     <main style="text-align: center; padding: 20px; width: 100%; max-width: 380px;">
-        <h1>МЕТЕОСТАНЦІЯ</h1>
+        <h1 style="margin-bottom: 20px;">МЕТЕОСТАНЦІЯ</h1>
         
         <div class="section-card">
             <div class="sensor-label">Дата: <span id="date" class="sensor-value">...</span></div>
             <div class="sensor-label">Час: <span id="time" class="sensor-value">...</span></div>
-            <div style="margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 10px;">
+            <div style="margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 10px;">
                 <div class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм.рт.ст.</div>
             </div>
         </div>
 
         <div class="section-card">
-            <div class="section-title">ВУЛИЦЯ (ESP-NOW)</div>
+            <div class="section-title">Вулиця</div>
             <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
             <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
             <div class="sensor-label" style="font-size: 12px; color: #666;">Заряд батареї: <span id="bat_ext">...</span>%</div>
         </div>
 
         <div class="section-card">
-            <div class="section-title">КОРИДОР (BME280)</div>
+            <div class="section-title">Коридор</div>
             <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
             <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
         </div>
 
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
             <a href="logs.html" class="btn">Журнал та графіки</a>
             <a href="index.html" class="btn">На головну</a>
         </div>
@@ -83,18 +83,18 @@
                 statusText.innerText = 'Онлайн';
                 statusText.parentElement.style.color = '#08DD08';
 
-                // Оновлення головної картки
+                // Головна картка
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
 
-                // Оновлення Вулиці
+                // Вулиця
                 const te = parseFloat(data.vulytsia.t);
                 document.getElementById('t_ext').innerText = isNaN(te) ? data.vulytsia.t : te.toFixed(1);
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
 
-                // Оновлення Коридору
+                // Коридор
                 const tk = parseFloat(data.korydor.t);
                 document.getElementById('t_kor').innerText = isNaN(tk) ? data.korydor.t : tk.toFixed(1);
                 document.getElementById('h_kor').innerText = data.korydor.h;
