@@ -11,7 +11,6 @@
             border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; 
             display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; 
             margin-top: 15px; font-family: sans-serif;
-            /* ВИПРАВЛЕНО: Заборона виділення тексту */
             user-select: none; -webkit-user-select: none;
         }
         .btn:hover { background-color: #28a745; }
@@ -24,11 +23,18 @@
 <body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
     <main style="text-align: center; padding: 20px;">
         <h1>БАРОМЕТР</h1>
-        <div style="margin: 30px 0;">
+        
+        <div style="margin-bottom: 20px;">
+            <h3 class="sensor-label">Дата: <span id="date" class="sensor-value">...</span></h3>
+            <h3 class="sensor-label">Час: <span id="time" class="sensor-value">...</span></h3>
+        </div>
+
+        <div style="margin: 30px 0; border-top: 1px solid #ccc; padding-top: 10px;">
             <h3 class="sensor-label">Температура: <span id="temp" class="sensor-value">...</span> °C</h3>
             <h3 class="sensor-label">Відносна вологість: <span id="hum" class="sensor-value">...</span> %</h3>
             <h3 class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм. рт. ст.</h3>
         </div>
+
         <div style="display: flex; flex-direction: column; align-items: center;">
             <a href="logs.html" class="btn">Журнал та графіки</a>
             <a href="index.html" class="btn">На головну</a>
@@ -38,6 +44,7 @@
 
     <script>
         const statusText = document.getElementById('mqtt-status');
+        // Підключаємося до брокера
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
             clientId: 'WebClient_Baro_' + Math.random().toString(16).substr(2, 8)
         });
@@ -45,29 +52,38 @@
 
         client.on('connect', () => {
             statusText.innerText = 'Онлайн';
-            statusText.parentElement.style.color = '#08DD08'; // Зелений
-            client.subscribe('7091003_Checher_ESP32/status');
+            statusText.parentElement.style.color = '#08DD08'; 
+            // Підписуємося на НОВИЙ топік із JSON
+            client.subscribe('7091003_Checher_ESP32/all_data');
         });
 
         client.on('message', (topic, message) => {
-            lastUpdate = Date.now();
-            statusText.innerText = 'Онлайн';
-            statusText.parentElement.style.color = '#08DD08';
-            const data = message.toString().split('|');
-            if(data.length >= 4) {
-                document.getElementById('temp').innerText = data[1].trim();
-                document.getElementById('hum').innerText = data[2].trim();
-                document.getElementById('pres').innerText = data[3].trim();
+            try {
+                const data = JSON.parse(message.toString());
+                lastUpdate = Date.now();
+                statusText.innerText = 'Онлайн';
+                statusText.parentElement.style.color = '#08DD08';
+
+                // Оновлюємо дату та час
+                document.getElementById('date').innerText = data.date;
+                document.getElementById('time').innerText = data.time;
+
+                // Оновлюємо дані з коридору (BME280)
+                document.getElementById('temp').innerText = data.korydor.t;
+                document.getElementById('hum').innerText = data.korydor.h;
+                document.getElementById('pres').innerText = data.korydor.p;
+            } catch (e) {
+                console.error("Помилка парсингу JSON:", e);
             }
         });
 
+        // Перевірка на "Офлайн"
         setInterval(() => {
             if (Date.now() - lastUpdate > 15000) {
-                document.getElementById('temp').innerText = 'No Data';
-                document.getElementById('hum').innerText = 'No Data';
-                document.getElementById('pres').innerText = 'No Data';
+                const sensors = ['temp', 'hum', 'pres', 'date', 'time'];
+                sensors.forEach(id => document.getElementById(id).innerText = 'No Data');
                 statusText.innerText = 'Офлайн (ESP32 вимкнена)';
-                statusText.parentElement.style.color = 'red'; // Червоний
+                statusText.parentElement.style.color = 'red';
             }
         }, 5000);
     </script>
