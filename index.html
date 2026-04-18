@@ -27,7 +27,7 @@
         <h3 style="color: black; margin-bottom: 30px;">Час: <span id="time-val" style="color: red; font-weight: bold;">...</span></h3>
         
         <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
-            <a href="barometer.html" class="btn">Барометр</a>
+            <a href="barometer.html" class="btn">Метеостанція</a>
             <div class="btn">Живлення Raspberry Pi 5</div>
             <div class="btn">Статистика відключень</div>
         </div>
@@ -44,7 +44,6 @@
             const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
                 clientId: 'Web_Index_' + Math.random().toString(16).substr(2, 8)
             });
-            // Виправлено: Новий топік
             const topic = '7091003_Checher_ESP32/all_data';
 
             client.on('connect', () => { client.subscribe(topic); });
@@ -55,7 +54,6 @@
                     lastUpdate = Date.now();
                     statusText.innerText = 'Онлайн';
                     statusText.parentElement.style.color = '#08DD08';
-
                     dateEl.innerText = data.date;
                     timeEl.innerText = data.time;
                 } catch (e) { console.error("JSON Error", e); }
