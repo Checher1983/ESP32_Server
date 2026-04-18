@@ -17,7 +17,16 @@
         .btn:active { background-color: yellow; color: #21B1FF; }
         .sensor-label { color: black; margin: 8px 0; font-family: sans-serif; font-size: 16px; }
         .sensor-value { color: red; font-weight: bold; }
-        .section-card { background: white; padding: 15px; border-radius: 12px; border: 1px solid #ccc; margin-bottom: 15px; }
+        
+        /* Змінено фон карток на жовтий */
+        .section-card { 
+            background: #FFFFE0; /* LightYellow */
+            padding: 15px; 
+            border-radius: 12px; 
+            border: 1px solid #ccc; 
+            margin-bottom: 15px; 
+        }
+        
         .section-title { color: #21B1FF; font-weight: bold; margin-bottom: 10px; text-decoration: underline; }
         #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
@@ -35,16 +44,16 @@
         </div>
 
         <div class="section-card">
-            <div class="section-title">КОРИДОР (BME280)</div>
-            <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
-            <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
-        </div>
-
-        <div class="section-card">
             <div class="section-title">ВУЛИЦЯ (ESP-NOW)</div>
             <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
             <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
             <div class="sensor-label" style="font-size: 12px; color: #666;">Заряд батареї: <span id="bat_ext">...</span>%</div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-title">КОРИДОР (BME280)</div>
+            <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
+            <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: center;">
@@ -57,7 +66,7 @@
     <script>
         const statusText = document.getElementById('mqtt-status');
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-            clientId: 'Web_Baro_' + Math.random().toString(16).substr(2, 8)
+            clientId: 'Web_Station_' + Math.random().toString(16).substr(2, 8)
         });
         let lastUpdate = Date.now();
 
@@ -74,23 +83,23 @@
                 statusText.innerText = 'Онлайн';
                 statusText.parentElement.style.color = '#08DD08';
 
-                // Загальні
+                // Оновлення головної картки
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
 
-                // Коридор
-                const tk = parseFloat(data.korydor.t);
-                document.getElementById('t_kor').innerText = isNaN(tk) ? data.korydor.t : tk.toFixed(1);
-                document.getElementById('h_kor').innerText = data.korydor.h;
-
-                // Вулиця
+                // Оновлення Вулиці
                 const te = parseFloat(data.vulytsia.t);
                 document.getElementById('t_ext').innerText = isNaN(te) ? data.vulytsia.t : te.toFixed(1);
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
 
-            } catch (e) { console.error("Parse error", e); }
+                // Оновлення Коридору
+                const tk = parseFloat(data.korydor.t);
+                document.getElementById('t_kor').innerText = isNaN(tk) ? data.korydor.t : tk.toFixed(1);
+                document.getElementById('h_kor').innerText = data.korydor.h;
+
+            } catch (e) { console.error("JSON Parse Error", e); }
         });
 
         setInterval(() => {
