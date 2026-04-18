@@ -18,7 +18,6 @@
         .sensor-label { color: black; margin: 8px 0; font-family: sans-serif; font-size: 16px; }
         .sensor-value { color: red; font-weight: bold; }
         
-        /* КОЛІР ЗІ СКРИНШОТУ */
         .section-card { 
             background: #B2F2BB; 
             padding: 15px; 
@@ -83,15 +82,15 @@
                 statusText.innerText = 'Онлайн';
                 statusText.parentElement.style.color = '#08DD08';
 
-                // Головна картка
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
 
-                // Вулиця
+                // Вулиця з фільтрацією помилок вологості
                 const te = parseFloat(data.vulytsia.t);
+                const he = parseInt(data.vulytsia.h);
                 document.getElementById('t_ext').innerText = isNaN(te) ? data.vulytsia.t : te.toFixed(1);
-                document.getElementById('h_ext').innerText = data.vulytsia.h;
+                document.getElementById('h_ext').innerText = (he > 100 || isNaN(he)) ? "Error" : he;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
 
                 // Коридор
