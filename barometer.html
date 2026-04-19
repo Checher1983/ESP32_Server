@@ -7,74 +7,114 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         * { user-select: none; -webkit-user-select: none; }
-        body { font-family: sans-serif; background-color: #f4f4f4; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .section-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 280px; margin-bottom: 15px; text-align: center; }
-        .section-title { font-weight: bold; font-size: 18px; margin-bottom: 10px; color: #333; border-bottom: 2px solid #21B1FF; display: inline-block; padding: 0 10px; }
-        .sensor-label { color: black; margin: 8px 0; font-size: 16px; }
+        .btn { 
+            text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px 10px; 
+            border-radius: 8px; border: 2px solid black; font-weight: bold; width: 260px; 
+            display: inline-block; transition: 0.3s; text-align: center; box-sizing: border-box; 
+            margin-top: 15px; font-family: sans-serif;
+        }
+        .btn:hover { background-color: #28a745; }
+        .btn:active { background-color: yellow; color: #21B1FF; }
+        .sensor-label { color: black; margin: 8px 0; font-family: sans-serif; font-size: 16px; }
         .sensor-value { color: red; font-weight: bold; }
-        .status { margin-top: 10px; font-size: 14px; font-weight: bold; }
+        
+        .section-card { 
+            background: #B2F2BB; 
+            padding: 15px; 
+            border-radius: 20px; 
+            border: 1px solid #99d9a4; 
+            margin-bottom: 15px; 
+        }
+        
+        .section-title { color: #21B1FF; font-weight: bold; margin-bottom: 10px; text-decoration: underline; text-transform: uppercase; }
+        #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
     </style>
 </head>
-<body>
-
-    <div class="section-card">
-        <div class="section-title" id="date">01.01.2026</div>
-        <div style="font-size: 24px; font-weight: bold; color: #21B1FF;" id="time">00:00:00</div>
-    </div>
-
-    <div class="section-card">
-        <div class="section-title">Коридор</div>
-        <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
-        <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
-        <div class="sensor-label">Тиск: <span id="pres" class="sensor-value">...</span> ммРт</div>
-    </div>
-
-    <div class="section-card">
-        <div class="section-title">Вулиця</div>
-        <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
-        <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
-        <div style="display: flex; justify-content: space-around; margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 5px;">
-            <div class="sensor-label" style="font-size: 11px; color: #666;">Батарея: <span id="bat_ext">...</span>%</div>
-            <div class="sensor-label" style="font-size: 11px; color: #666;">Сигнал: <span id="rssi_ext">...</span> dBm</div>
+<body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
+    <main style="text-align: center; padding: 20px; width: 100%; max-width: 380px;">
+        <h1 style="margin-bottom: 20px;">МЕТЕОСТАНЦІЯ</h1>
+        
+        <div class="section-card">
+            <div class="sensor-label">Дата: <span id="date" class="sensor-value">...</span></div>
+            <div class="sensor-label">Час: <span id="time" class="sensor-value">...</span></div>
+            <div style="margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 10px;">
+                <div class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм.рт.ст.</div>
+            </div>
         </div>
-    </div>
 
-    <div class="status">Статус: <span id="statusText">Підключення...</span></div>
+        <div class="section-card">
+            <div class="section-title">Вулиця</div>
+            <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
+            <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
+            <div style="display: flex; justify-content: space-around; margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 5px;">
+                <div class="sensor-label" style="font-size: 11px; color: #666;">Заряд: <span id="bat_ext">...</span>%</div>
+                <div class="sensor-label" style="font-size: 11px; color: #666;">Сигнал: <span id="rssi_ext">...</span> dBm</div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-title">Коридор</div>
+            <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
+            <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
+            <a href="logs.html" class="btn">Журнал та графіки</a>
+            <a href="index.html" class="btn">На головну</a>
+        </div>
+        <div id="status-footer">Статус: <span id="mqtt-status">Підключення...</span></div>
+    </main>
 
     <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const topic = "7091003_Checher_ESP32/all_data";
+        const statusText = document.getElementById('mqtt-status');
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            clientId: 'Web_Station_' + Math.random().toString(16).substr(2, 8)
+        });
         let lastUpdate = Date.now();
 
         client.on('connect', () => {
-            client.subscribe(topic);
-            document.getElementById('statusText').innerText = 'Онлайн';
+            statusText.innerText = 'Онлайн';
+            statusText.parentElement.style.color = '#08DD08'; 
+            client.subscribe('7091003_Checher_ESP32/all_data');
         });
 
-        client.on('message', (t, msg) => {
+        client.on('message', (topic, message) => {
             try {
-                const data = JSON.parse(msg.toString());
+                const data = JSON.parse(message.toString());
                 lastUpdate = Date.now();
-                document.getElementById('statusText').innerText = 'Оновлено';
+                statusText.innerText = 'Онлайн';
+                statusText.parentElement.style.color = '#08DD08';
 
+                // Оновлення основних полів
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
-                document.getElementById('t_kor').innerText = data.korydor.t;
-                document.getElementById('h_kor').innerText = data.korydor.h;
 
-                document.getElementById('t_ext').innerText = data.vulytsia.t;
+                // Вулиця
+                const te = parseFloat(data.vulytsia.t);
+                document.getElementById('t_ext').innerText = isNaN(te) ? data.vulytsia.t : te.toFixed(1);
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
                 document.getElementById('rssi_ext').innerText = data.vulytsia.rssi;
-            } catch (e) { console.log(e); }
+
+                // Коридор
+                const tk = parseFloat(data.korydor.t);
+                document.getElementById('t_kor').innerText = isNaN(tk) ? data.korydor.t : tk.toFixed(1);
+                document.getElementById('h_kor').innerText = data.korydor.h;
+
+            } catch (e) { console.error("JSON Parse Error", e); }
         });
 
+        // Перевірка активності (якщо даних немає більше 20 сек)
         setInterval(() => {
             if (Date.now() - lastUpdate > 20000) {
-                const ids = ['t_kor','h_kor','pres','t_ext','h_ext','bat_ext','rssi_ext'];
-                ids.forEach(id => document.getElementById(id).innerText = 'No Data');
-                document.getElementById('statusText').innerText = 'Офлайн';
+                const ids = ['date','time','pres','t_kor','h_kor','t_ext','h_ext','bat_ext','rssi_ext'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.innerText = 'No Data';
+                });
+                statusText.innerText = 'Офлайн (ESP32 вимкнена)';
+                statusText.parentElement.style.color = 'red';
             }
         }, 5000);
     </script>
