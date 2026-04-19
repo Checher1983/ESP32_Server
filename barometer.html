@@ -7,16 +7,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         * { user-select: none; -webkit-user-select: none; }
-        body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; }
+        body { 
+            background-color: #E4EAF6; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: sans-serif; 
+        }
         
-        main { text-align: center; padding: 20px; width: 100%; max-width: 400px; }
+        main { text-align: center; padding: 20px; width: 100%; max-width: 420px; }
         
         .card {
-            background-color: #B2F2BB; /* Твій зелений колір */
-            padding: 15px;
-            border-radius: 25px;
-            margin-bottom: 15px;
+            background-color: #B2F2BB; /* Ваш зелений колір зі скріншоту */
+            padding: 20px;
+            border-radius: 30px;
+            margin-bottom: 20px;
             border: 1px solid #99d9a4;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
         .section-title {
@@ -24,42 +33,56 @@
             font-weight: bold;
             text-decoration: underline;
             text-transform: uppercase;
-            font-size: 1.2em;
+            font-size: 1.3em;
             margin-bottom: 10px;
-            display: block;
+            display: inline-block;
         }
 
-        .sensor-label { color: black; margin: 8px 0; font-size: 1.1em; }
-        .sensor-value { color: red; font-weight: bold; }
+        .sensor-label { 
+            color: black; 
+            margin: 10px 0; 
+            font-size: 1.2em; 
+        }
+
+        .sensor-value { 
+            color: red; 
+            font-weight: bold; 
+        }
         
         .btn {
             text-decoration: none; 
             background-color: #21B1FF; 
             color: yellow; 
-            padding: 12px 10px; 
+            padding: 14px 10px; 
             border-radius: 12px; 
             border: 2px solid black; 
             font-weight: bold; 
-            width: 280px; 
+            width: 300px; 
             display: inline-block;
             transition: 0.3s;
             text-align: center;
             box-sizing: border-box;
-            margin-top: 10px;
+            margin-top: 12px;
+            font-size: 1.1em;
         }
         .btn:hover { background-color: #28a745; }
 
-        #status-text { font-size: 12px; font-weight: bold; margin-top: 15px; }
+        #status-text { 
+            font-size: 14px; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            color: #08DD08;
+        }
     </style>
 </head>
 <body>
     <main>
-        <h1 style="color: #333; margin-bottom: 20px;">МЕТЕОСТАНЦІЯ</h1>
+        <h1 style="color: #333; font-size: 2.5em; margin-top: 0;">МЕТЕОСТАНЦІЯ</h1>
 
         <div class="card">
             <div class="sensor-label">Дата: <span id="date" class="sensor-value">01.01.2026</span></div>
             <div class="sensor-label">Час: <span id="time" class="sensor-value">00:00:00</span></div>
-            <div style="border-top: 1px dotted #99d9a4; margin-top: 10px; padding-top: 10px;">
+            <div style="border-top: 1px dotted gray; margin-top: 15px; padding-top: 15px;">
                 <div class="sensor-label">Атмосферний тиск: <span id="pres" class="sensor-value">...</span> мм.рт.ст.</div>
             </div>
         </div>
@@ -68,8 +91,8 @@
             <span class="section-title">ВУЛИЦЯ</span>
             <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
             <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
-            <div style="color: #666; font-size: 0.8em; margin-top: 5px;">
-                Заряд батареї: <span id="bat_ext">...</span>% | Сигнал: <span id="rssi_ext">...</span> dBm
+            <div style="color: #666; font-size: 0.85em; margin-top: 10px;">
+                Заряд батареї: <span id="bat_ext">...</span>%
             </div>
         </div>
 
@@ -79,12 +102,12 @@
             <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
         </div>
 
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
             <a href="logs.html" class="btn">Журнал та графіки</a>
             <a href="index.html" class="btn">На головну</a>
         </div>
 
-        <div id="status-text" style="color: #08DD08;">Статус: Онлайн</div>
+        <div id="status-text">Статус: Онлайн</div>
     </main>
 
     <script>
@@ -102,21 +125,19 @@
             try {
                 const data = JSON.parse(message.toString());
                 lastUpdate = Date.now();
-                statusEl.innerText = 'Статус: Оновлено';
-                statusEl.style.color = '#08DD08';
+                statusEl.innerText = 'Статус: Онлайн';
 
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
 
-                document.getElementById('t_kor').innerText = data.korydor.t;
-                document.getElementById('h_kor').innerText = data.korydor.h;
-
                 document.getElementById('t_ext').innerText = data.vulytsia.t;
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
-                document.getElementById('rssi_ext').innerText = data.vulytsia.rssi;
-            } catch (e) { console.error(e); }
+
+                document.getElementById('t_kor').innerText = data.korydor.t;
+                document.getElementById('h_kor').innerText = data.korydor.h;
+            } catch (e) { console.error("Помилка JSON", e); }
         });
 
         setInterval(() => {
