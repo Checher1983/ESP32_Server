@@ -1,17 +1,82 @@
-<div class="section-card">
-    <div class="section-title">Вулиця</div>
-    <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
-    <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
-    <div style="display: flex; justify-content: space-around; margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 5px;">
-        <div class="sensor-label" style="font-size: 11px; color: #666;">Батарея: <span id="bat_ext">...</span>%</div>
-        <div class="sensor-label" style="font-size: 11px; color: #666;">Сигнал: <span id="rssi_ext">...</span> dBm</div>
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метеостанція - ESP32</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        * { user-select: none; -webkit-user-select: none; }
+        body { font-family: sans-serif; background-color: #f4f4f4; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .section-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 280px; margin-bottom: 15px; text-align: center; }
+        .section-title { font-weight: bold; font-size: 18px; margin-bottom: 10px; color: #333; border-bottom: 2px solid #21B1FF; display: inline-block; padding: 0 10px; }
+        .sensor-label { color: black; margin: 8px 0; font-size: 16px; }
+        .sensor-value { color: red; font-weight: bold; }
+        .status { margin-top: 10px; font-size: 14px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="section-card">
+        <div class="section-title" id="date">01.01.2026</div>
+        <div style="font-size: 24px; font-weight: bold; color: #21B1FF;" id="time">00:00:00</div>
     </div>
-</div>
 
-<script>
-// У блоці обробки повідомлення додайте:
-document.getElementById('rssi_ext').innerText = data.vulytsia.rssi;
+    <div class="section-card">
+        <div class="section-title">Коридор</div>
+        <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
+        <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
+        <div class="sensor-label">Тиск: <span id="pres" class="sensor-value">...</span> ммРт</div>
+    </div>
 
-// Та у функцію setInterval для скидання даних:
-const ids = ['date','time','pres','t_kor','h_kor','t_ext','h_ext','bat_ext','rssi_ext'];
-</script>
+    <div class="section-card">
+        <div class="section-title">Вулиця</div>
+        <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
+        <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
+        <div style="display: flex; justify-content: space-around; margin-top: 10px; border-top: 1px dotted #99d9a4; padding-top: 5px;">
+            <div class="sensor-label" style="font-size: 11px; color: #666;">Батарея: <span id="bat_ext">...</span>%</div>
+            <div class="sensor-label" style="font-size: 11px; color: #666;">Сигнал: <span id="rssi_ext">...</span> dBm</div>
+        </div>
+    </div>
+
+    <div class="status">Статус: <span id="statusText">Підключення...</span></div>
+
+    <script>
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const topic = "7091003_Checher_ESP32/all_data";
+        let lastUpdate = Date.now();
+
+        client.on('connect', () => {
+            client.subscribe(topic);
+            document.getElementById('statusText').innerText = 'Онлайн';
+        });
+
+        client.on('message', (t, msg) => {
+            try {
+                const data = JSON.parse(msg.toString());
+                lastUpdate = Date.now();
+                document.getElementById('statusText').innerText = 'Оновлено';
+
+                document.getElementById('date').innerText = data.date;
+                document.getElementById('time').innerText = data.time;
+                document.getElementById('pres').innerText = data.korydor.p;
+                document.getElementById('t_kor').innerText = data.korydor.t;
+                document.getElementById('h_kor').innerText = data.korydor.h;
+
+                document.getElementById('t_ext').innerText = data.vulytsia.t;
+                document.getElementById('h_ext').innerText = data.vulytsia.h;
+                document.getElementById('bat_ext').innerText = data.vulytsia.b;
+                document.getElementById('rssi_ext').innerText = data.vulytsia.rssi;
+            } catch (e) { console.log(e); }
+        });
+
+        setInterval(() => {
+            if (Date.now() - lastUpdate > 20000) {
+                const ids = ['t_kor','h_kor','pres','t_ext','h_ext','bat_ext','rssi_ext'];
+                ids.forEach(id => document.getElementById(id).innerText = 'No Data');
+                document.getElementById('statusText').innerText = 'Офлайн';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
