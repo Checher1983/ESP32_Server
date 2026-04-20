@@ -28,7 +28,10 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
-        /* Контейнер для сітки кімнат */
+        /* Стиль для блоку дати та часу */
+        .header-label { font-size: 1.2em; font-weight: normal; color: black; }
+        .header-value { color: red; font-weight: bold; }
+
         .grid-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -50,26 +53,26 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             margin: 5px 0;
-            font-size: 1.1em;
+            font-size: 1.2em;
         }
 
         .sensor-value { color: red; font-weight: bold; }
         
         .icon-temp { width: 10px; height: auto; }
-        .icon-drop { width: 20px; height: auto; }
+        .icon-drop { width: 22px; height: auto; }
 
         .battery-bar { 
-            width: 35px; height: 15px; border: 1.5px solid black; border-radius: 3px; 
+            width: 35px; height: 16px; border: 1.5px solid black; border-radius: 3px; 
             position: relative; background: white; display: inline-block;
         }
         .battery-level { height: 100%; background: #00FF00; width: 0%; transition: 0.5s; }
 
         .btn {
-            text-decoration: none; background-color: #21B1FF; color: yellow; padding: 10px; 
+            text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px; 
             border-radius: 12px; border: 2px solid black; font-weight: bold; width: 100%; 
-            display: inline-block; box-sizing: border-box; margin-top: 8px; font-size: 1em;
+            display: inline-block; box-sizing: border-box; margin-top: 8px; font-size: 1.1em;
         }
 
         #status-text { font-size: 12px; font-weight: bold; margin-top: 10px; color: #08DD08; }
@@ -77,13 +80,13 @@
 </head>
 <body>
     <main>
-        <h1 style="color: #333; font-size: 1.8em; margin: 0 0 10px 0;">МЕТЕОСТАНЦІЯ</h1>
+        <h1 style="color: #333; font-size: 2em; margin: 0 0 15px 0;">МЕТЕОСТАНЦІЯ</h1>
 
         <div class="card">
-            <div style="font-size: 1.1em;"><span id="date">...</span></div>
-            <div style="font-size: 1.5em; font-weight: bold; color: #21B1FF; margin: 5px 0;"><span id="time">...</span></div>
-            <div style="border-top: 1px dotted gray; margin-top: 8px; padding-top: 8px;">
-                <span id="pres" class="sensor-value">...</span> <small>мм.рт.ст.</small>
+            <div class="header-label">Дата: <span id="date" class="header-value">...</span></div>
+            <div class="header-label" style="margin-top: 5px;">Час: <span id="time" class="header-value">...</span></div>
+            <div style="border-top: 1px dotted gray; margin-top: 10px; padding-top: 10px;">
+                Атмосферний тиск: <span id="pres" class="sensor-value">...</span> <small>мм.рт.ст.</small>
             </div>
         </div>
 
@@ -166,77 +169,4 @@
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: center;">
-            <a href="logs.html" class="btn">Журнал та графіки</a>
-            <a href="index.html" class="btn">На головну</a>
-        </div>
-
-        <div id="status-text">Статус: Очікування даних...</div>
-    </main>
-
-    <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        
-        function updateTempIcon(id, value, iconId) {
-            const el = document.getElementById(id);
-            const icon = document.getElementById(iconId);
-            if (value === undefined || value === null) {
-                el.innerText = "...";
-                return;
-            }
-            const temp = parseFloat(value);
-            icon.src = temp < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
-            el.innerText = value;
-        }
-
-        function updateBattery(levelId, textId, value) {
-            const bar = document.getElementById(levelId);
-            const text = document.getElementById(textId);
-            if (value === undefined || value === null) {
-                text.innerText = "...%";
-                return;
-            }
-            const bat = parseInt(value);
-            text.innerText = bat + '%';
-            bar.style.width = bat + '%';
-            bar.style.backgroundColor = bat <= 20 ? 'red' : bat <= 50 ? 'orange' : '#00FF00';
-        }
-
-        client.on('connect', () => {
-            client.subscribe('7091003_Checher_ESP32/all_data');
-            document.getElementById('status-text').innerText = "Статус: Онлайн";
-        });
-
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                
-                document.getElementById('date').innerText = data.date || "...";
-                document.getElementById('time').innerText = data.time || "...";
-                document.getElementById('pres').innerText = data.korydor?.p || "...";
-
-                // Оновлення для всіх зон
-                updateTempIcon('t_ext', data.vulytsia?.t, 't_ext_icon');
-                document.getElementById('h_ext').innerText = data.vulytsia?.h || "...";
-                updateBattery('bat_level_ext', 'bat_text_ext', data.vulytsia?.b);
-
-                updateTempIcon('t_kor', data.korydor?.t, 't_kor_icon');
-                document.getElementById('h_kor').innerText = data.korydor?.h || "...";
-
-                // Для нових датчиків (завтра налаштуємо в коді прошивки)
-                updateTempIcon('t_room', data.room?.t, 't_room_icon');
-                document.getElementById('h_room').innerText = data.room?.h || "...";
-                updateBattery('bat_level_room', 'bat_text_room', data.room?.b);
-
-                updateTempIcon('t_kit', data.kitchen?.t, 't_kit_icon');
-                document.getElementById('h_kit').innerText = data.kitchen?.h || "...";
-                updateBattery('bat_level_kit', 'bat_text_kit', data.kitchen?.b);
-
-                updateTempIcon('t_bath', data.bath?.t, 't_bath_icon');
-                document.getElementById('h_bath').innerText = data.bath?.h || "...";
-                updateBattery('bat_level_bath', 'bat_text_bath', data.bath?.b);
-
-            } catch (e) { console.error("Error", e); }
-        });
-    </script>
-</body>
-</html>
+            <a href="logs.html" class="btn">Журнал та графі
