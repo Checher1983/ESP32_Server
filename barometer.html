@@ -73,4 +73,137 @@
         .btn {
             text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px; 
             border-radius: 12px; border: 2px solid black; font-weight: bold; width: 300px; 
-            display: inline-block
+            display: inline-block; box-sizing: border-box; margin-top: 8px; font-size: 1.1em;
+            transition: 0.3s;
+        }
+        .btn:hover { background-color: #28a745; }
+        .btn:active { background-color: yellow; color: #21B1FF; }
+
+        #status-text { font-size: 12px; font-weight: bold; margin-top: 15px; color: #08DD08; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1 style="color: #333; font-size: 2em; margin: 0 0 15px 0;">МЕТЕОСТАНЦІЯ</h1>
+
+        <div class="card">
+            <div class="header-label">Дата: <span id="date" class="header-value">...</span></div>
+            <div class="header-label" style="margin-top: 5px;">Час: <span id="time" class="header-value">...</span></div>
+            <div style="border-top: 1px dotted gray; margin-top: 10px; padding-top: 10px;">
+                Атмосферний тиск: <span id="pres" class="sensor-value">...</span> <small>мм.рт.ст.</small>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div class="card" style="margin-bottom: 0;">
+                <span class="section-title">ВУЛИЦЯ</span>
+                <div class="sensor-row"><img id="t_ext_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_ext" class="sensor-value">...</span>°C</div>
+                <div class="sensor-row"><img src="img/Drop.png" class="icon-drop"><span id="h_ext" class="sensor-value">...</span>%</div>
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <div class="battery-bar"><div id="bat_level_ext" class="battery-level"></div></div>
+                    <span id="bat_text_ext" style="font-size: 0.8em; font-weight: bold;">...%</span>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 0;">
+                <span class="section-title">КІМНАТА</span>
+                <div class="sensor-row"><img id="t_room_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_room" class="sensor-value">...</span>°C</div>
+                <div class="sensor-row"><img src="img/Drop.png" class="icon-drop"><span id="h_room" class="sensor-value">...</span>%</div>
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <div class="battery-bar"><div id="bat_level_room" class="battery-level"></div></div>
+                    <span id="bat_text_room" style="font-size: 0.8em; font-weight: bold;">...%</span>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 0;">
+                <span class="section-title">КУХНЯ</span>
+                <div class="sensor-row"><img id="t_kit_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_kit" class="sensor-value">...</span>°C</div>
+                <div class="sensor-row"><img src="img/Drop.png" class="icon-drop"><span id="h_kit" class="sensor-value">...</span>%</div>
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <div class="battery-bar"><div id="bat_level_kit" class="battery-level"></div></div>
+                    <span id="bat_text_kit" style="font-size: 0.8em; font-weight: bold;">...%</span>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 0;">
+                <span class="section-title">ВАННА</span>
+                <div class="sensor-row"><img id="t_bath_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_bath" class="sensor-value">...</span>°C</div>
+                <div class="sensor-row"><img src="img/Drop.png" class="icon-drop"><span id="h_bath" class="sensor-value">...</span>%</div>
+                <div style="margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <div class="battery-bar"><div id="bat_level_bath" class="battery-level"></div></div>
+                    <span id="bat_text_bath" style="font-size: 0.8em; font-weight: bold;">...%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="max-width: 180px; margin: 0 auto 15px auto;">
+            <span class="section-title">КОРИДОР</span>
+            <div class="sensor-row"><img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_kor" class="sensor-value">...</span>°C</div>
+            <div class="sensor-row"><img src="img/Drop.png" class="icon-drop"><span id="h_kor" class="sensor-value">...</span>%</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <a href="logs.html" class="btn">Журнал та графіки</a>
+            <a href="index.html" class="btn">На головну</a>
+        </div>
+
+        <div id="status-text">Статус: Очікування даних...</div>
+    </main>
+
+    <script>
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        
+        function updateTempIcon(id, value, iconId) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById(iconId);
+            if (value === undefined || value === null) { el.innerText = "..."; return; }
+            const temp = parseFloat(value);
+            icon.src = temp < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+            el.innerText = value;
+        }
+
+        function updateBattery(levelId, textId, value) {
+            const bar = document.getElementById(levelId);
+            const text = document.getElementById(textId);
+            if (value === undefined || value === null) { text.innerText = "...%"; return; }
+            const bat = parseInt(value);
+            text.innerText = bat + '%';
+            bar.style.width = bat + '%';
+            bar.style.backgroundColor = bat <= 20 ? 'red' : bat <= 50 ? 'orange' : '#00FF00';
+        }
+
+        client.on('connect', () => {
+            client.subscribe('7091003_Checher_ESP32/all_data');
+            document.getElementById('status-text').innerText = "Статус: Онлайн";
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                document.getElementById('date').innerText = data.date || "...";
+                document.getElementById('time').innerText = data.time || "...";
+                document.getElementById('pres').innerText = data.korydor?.p || "...";
+
+                updateTempIcon('t_ext', data.vulytsia?.t, 't_ext_icon');
+                document.getElementById('h_ext').innerText = data.vulytsia?.h || "...";
+                updateBattery('bat_level_ext', 'bat_text_ext', data.vulytsia?.b);
+
+                updateTempIcon('t_kor', data.korydor?.t, 't_kor_icon');
+                document.getElementById('h_kor').innerText = data.korydor?.h || "...";
+
+                updateTempIcon('t_room', data.room?.t, 't_room_icon');
+                document.getElementById('h_room').innerText = data.room?.h || "...";
+                updateBattery('bat_level_room', 'bat_text_room', data.room?.b);
+
+                updateTempIcon('t_kit', data.kitchen?.t, 't_kit_icon');
+                document.getElementById('h_kit').innerText = data.kitchen?.h || "...";
+                updateBattery('bat_level_kit', 'bat_text_kit', data.kitchen?.b);
+
+                updateTempIcon('t_bath', data.bath?.t, 't_bath_icon');
+                document.getElementById('h_bath').innerText = data.bath?.h || "...";
+                updateBattery('bat_level_bath', 'bat_text_bath', data.bath?.b);
+            } catch (e) { console.error("Error", e); }
+        });
+    </script>
+</body>
+</html>
