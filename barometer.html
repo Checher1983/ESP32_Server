@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         * { user-select: none; -webkit-user-select: none; }
+        
         body { 
             background-color: #E4EAF6; 
             margin: 0; 
@@ -20,7 +21,7 @@
         main { text-align: center; padding: 20px; width: 100%; max-width: 420px; }
         
         .card {
-            background-color: #B2F2BB; /* Ваш зелений колір зі скріншоту */
+            background-color: #B2F2BB; 
             padding: 20px;
             border-radius: 30px;
             margin-bottom: 20px;
@@ -42,6 +43,10 @@
             color: black; 
             margin: 10px 0; 
             font-size: 1.2em; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .sensor-value { 
@@ -49,6 +54,7 @@
             font-weight: bold; 
         }
         
+        /* Стилізація кнопок */
         .btn {
             text-decoration: none; 
             background-color: #21B1FF; 
@@ -64,8 +70,27 @@
             box-sizing: border-box;
             margin-top: 12px;
             font-size: 1.1em;
+            font-family: sans-serif;
         }
         .btn:hover { background-color: #28a745; }
+        .btn:active { background-color: yellow; color: #21B1FF; }
+
+        /* Стилі для іконок */
+        .humidity-icon {
+            width: 25px;
+            height: auto;
+        }
+
+        .battery-icon-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #battery_icon {
+            width: 40px;
+            height: auto;
+        }
 
         #status-text { 
             font-size: 14px; 
@@ -90,16 +115,28 @@
         <div class="card">
             <span class="section-title">ВУЛИЦЯ</span>
             <div class="sensor-label">Температура: <span id="t_ext" class="sensor-value">...</span> °C</div>
-            <div class="sensor-label">Вологість: <span id="h_ext" class="sensor-value">...</span> %</div>
-            <div style="color: #666; font-size: 0.85em; margin-top: 10px;">
-                Заряд батареї: <span id="bat_ext">...</span>%
+            
+            <div class="sensor-label">
+                <img src="humidity_drop.png" alt="Вологість" class="humidity-icon">
+                <span id="h_ext" class="sensor-value">...</span> %
+            </div>
+
+            <div style="color: #666; font-size: 0.85em; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <div class="battery-icon-container">
+                    <img src="battery_full.png" alt="Заряд батареї" id="battery_icon">
+                    <span id="bat_ext">...</span>%
+                </div>
             </div>
         </div>
 
         <div class="card">
             <span class="section-title">КОРИДОР</span>
             <div class="sensor-label">Температура: <span id="t_kor" class="sensor-value">...</span> °C</div>
-            <div class="sensor-label">Вологість: <span id="h_kor" class="sensor-value">...</span> %</div>
+            
+            <div class="sensor-label">
+                <img src="humidity_drop.png" alt="Вологість" class="humidity-icon">
+                <span id="h_kor" class="sensor-value">...</span> %
+            </div>
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
@@ -107,15 +144,27 @@
             <a href="index.html" class="btn">На головну</a>
         </div>
 
-        <div id="status-text">Статус: Онлайн</div>
+        <div id="status-text">Статус: Підключення...</div>
     </main>
 
     <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            clientId: 'MeteoWebClient_' + Math.random().toString(16).substr(2, 8)
+        });
         const statusEl = document.getElementById('status-text');
+        const batteryIcon = document.getElementById('battery_icon');
         let lastUpdate = Date.now();
 
+        // Шляхи до іконок (ЗАМІНІТЬ НА ВЛАСНІ ШЛЯХИ НА GitHub/сервері)
+        const BATTERY_ICONS = {
+            // Зелена іконка 100% (image_7.png, права частина)
+            full: 'battery_full.png', 
+            // Червона іконка 0% (image_7.png, ліва частина)
+            empty: 'battery_empty.png' 
+        };
+
         client.on('connect', () => {
+            // Твій унікальний топік MQTT
             client.subscribe('7091003_Checher_ESP32/all_data');
             statusEl.innerText = 'Статус: Онлайн';
             statusEl.style.color = '#08DD08';
@@ -127,19 +176,40 @@
                 lastUpdate = Date.now();
                 statusEl.innerText = 'Статус: Онлайн';
 
+                // Оновлення часу та загальних даних
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
 
+                // Дані вулиці
                 document.getElementById('t_ext').innerText = data.vulytsia.t;
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
+                
+                // Оновлення заряду батареї та іконки
+                const batteryLevel = parseInt(data.vulytsia.b);
                 document.getElementById('bat_ext').innerText = data.vulytsia.b;
+                
+                if (!isNaN(batteryLevel)) {
+                    // Змінюємо іконку в залежності від заряду
+                    if (batteryLevel <= 10) {
+                        // Якщо заряд менше або дорівнює 10%, показуємо червону
+                        batteryIcon.src = BATTERY_ICONS.empty;
+                    } else {
+                        // Інакше показуємо зелену
+                        batteryIcon.src = BATTERY_ICONS.full;
+                    }
+                } else {
+                    // Якщо даних немає (No Data), залиште поточну або встановіть за замовчуванням
+                }
 
+                // Дані коридору
                 document.getElementById('t_kor').innerText = data.korydor.t;
                 document.getElementById('h_kor').innerText = data.korydor.h;
+                
             } catch (e) { console.error("Помилка JSON", e); }
         });
 
+        // Перевірка таймауту (Офлайн)
         setInterval(() => {
             if (Date.now() - lastUpdate > 30000) {
                 statusEl.innerText = 'Статус: Офлайн';
