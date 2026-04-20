@@ -17,7 +17,7 @@
             font-family: sans-serif; 
         }
         
-        main { text-align: center; padding: 20px; width: 100%; max-width: 350px; } /* Зменшено ширину */
+        main { text-align: center; padding: 20px; width: 100%; max-width: 350px; }
         
         .card {
             background-color: #B2F2BB; 
@@ -43,15 +43,18 @@
             align-items: center;
             justify-content: center;
             gap: 15px;
-            margin: 10px 0;
+            margin: 8px 0;
             font-size: 1.3em;
         }
 
         .sensor-value { color: red; font-weight: bold; }
         
-        .icon { width: 30px; height: auto; vertical-align: middle; }
+        /* ЗМЕНШЕНА ІКОНКА ТЕРМОМЕТРА (втричі менша за стандартну 30px) */
+        .icon-temp { width: 10px; height: auto; vertical-align: middle; }
+        
+        /* ІКОНКА КРАПЛІ (залишаємо стандартною або теж можна підправити) */
+        .icon-drop { width: 25px; height: auto; vertical-align: middle; }
 
-        /* Стиль статус-бару батареї */
         .battery-bar { 
             width: 45px; height: 20px; border: 2px solid black; border-radius: 4px; 
             position: relative; background: white; display: inline-block;
@@ -83,11 +86,11 @@
         <div class="card">
             <span class="section-title">ВУЛИЦЯ</span>
             <div class="sensor-row">
-                <img id="t_ext_icon" src="img/Temp_High.png" class="icon">
+                <img id="t_ext_icon" src="img/Temp_High.png" class="icon-temp">
                 <span id="t_ext" class="sensor-value">...</span> °C
             </div>
             <div class="sensor-row">
-                <img src="img/Drop.png" class="icon">
+                <img src="img/Drop.png" class="icon-drop">
                 <span id="h_ext" class="sensor-value">...</span> %
             </div>
             <div style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -99,11 +102,11 @@
         <div class="card">
             <span class="section-title">КОРИДОР</span>
             <div class="sensor-row">
-                <img id="t_kor_icon" src="img/Temp_High.png" class="icon">
+                <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
                 <span id="t_kor" class="sensor-value">...</span> °C
             </div>
             <div class="sensor-row">
-                <img src="img/Drop.png" class="icon">
+                <img src="img/Drop.png" class="icon-drop">
                 <span id="h_kor" class="sensor-value">...</span> %
             </div>
         </div>
@@ -122,10 +125,8 @@
         function updateTempIcon(id, value, iconId) {
             const icon = document.getElementById(iconId);
             const temp = parseFloat(value);
-            if (temp < 0) {
-                icon.src = 'img/Temp_Low.png';
-            } else {
-                icon.src = 'img/Temp_High.png';
+            if (!isNaN(temp)) {
+                icon.src = temp < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
             }
             document.getElementById(id).innerText = value;
         }
@@ -137,26 +138,18 @@
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                
                 document.getElementById('date').innerText = data.date;
                 document.getElementById('time').innerText = data.time;
                 document.getElementById('pres').innerText = data.korydor.p;
-
-                // Вулиця: Температура + Іконка
                 updateTempIcon('t_ext', data.vulytsia.t, 't_ext_icon');
                 document.getElementById('h_ext').innerText = data.vulytsia.h;
-
-                // Батарея
                 const bat = parseInt(data.vulytsia.b);
                 document.getElementById('bat_text').innerText = bat + '%';
                 const levelEl = document.getElementById('bat_level');
                 levelEl.style.width = bat + '%';
                 levelEl.style.backgroundColor = bat <= 20 ? 'red' : bat <= 50 ? 'orange' : '#00FF00';
-
-                // Коридор: Температура + Іконка
                 updateTempIcon('t_kor', data.korydor.t, 't_kor_icon');
                 document.getElementById('h_kor').innerText = data.korydor.h;
-
             } catch (e) { console.error("Error", e); }
         });
     </script>
