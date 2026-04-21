@@ -9,35 +9,72 @@
         * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
         body { 
             background-color: #E4EAF6; 
-            margin: 0; display: flex; justify-content: center; align-items: center; 
-            height: 100vh; font-family: sans-serif; overflow: hidden; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; /* Змінено для підтримки свайпу */
+            font-family: sans-serif; 
+            overflow-y: auto; /* Дозволяємо прокрутку для активації жесту оновлення */
+            touch-action: pan-y;
         }
+        
         main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
+        
         h1 { color: #333; font-size: 1.6em; margin: 5px 0; }
 
         .card {
-            background-color: #B2F2BB; padding: 6px 10px; border-radius: 20px;
-            margin-bottom: 5px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            background-color: #B2F2BB; 
+            padding: 6px 10px;
+            border-radius: 20px;
+            margin-bottom: 5px;
+            border: 1px solid #99d9a4;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
 
         .header-label { font-size: 1.2em; color: black; line-height: 1.2; }
         .header-value { color: red; font-weight: bold; }
 
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 5px; }
-
-        .section-title {
-            color: #21B1FF; font-weight: bold; text-decoration: underline;
-            text-transform: uppercase; font-size: 1em; margin-bottom: 4px; display: block;
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 5px;
         }
 
-        .sensor-line { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 2px 0; font-size: 1.3em; }
+        .section-title {
+            color: #21B1FF;
+            font-weight: bold;
+            text-decoration: underline;
+            text-transform: uppercase;
+            font-size: 1em;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .sensor-line { 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin: 2px 0;
+            font-size: 1.3em;
+        }
+
         .sensor-value { color: red; font-weight: bold; }
         .unit { font-size: 0.8em; color: black; font-weight: bold; margin-left: -2px; }
         
         .icon-temp { width: 10px; height: auto; }
         .icon-drop { width: 20px; height: auto; }
 
-        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px solid rgba(0,0,0,0.05); }
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+            padding-top: 3px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
 
         /* Стиль батарейки з "+" контактом */
         .battery-container { display: flex; align-items: center; gap: 1px; }
@@ -56,9 +93,11 @@
             display: inline-block; margin-top: 6px; font-size: 1.1em;
         }
 
-        .status-waiting { color: #888888; }
-        .status-online { color: #08DD08; }
-        .status-offline { color: #FF0000; }
+        /* Кольори статусів */
+        .status-waiting { color: #888888; } /* Сірий */
+        .status-online { color: #08DD08; }  /* Зелений */
+        .status-offline { color: #FF0000; } /* Червоний */
+        
         #status-text { font-size: 13px; font-weight: bold; margin-top: 6px; }
     </style>
 </head>
@@ -110,14 +149,16 @@
             <a href="logs.html" class="btn">Журнал та графіки</a>
             <a href="index.html" class="btn">На головну</a>
         </div>
+
         <div id="status-text" class="status-waiting">Статус: Очікування даних...</div>
     </main>
 
     <script>
-        const clientId = 'WebClient_' + Math.random().toString(16).substr(2, 8);
+        const clientId = 'WebBarom_' + Math.random().toString(16).substr(2, 8);
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: clientId });
         const statusEl = document.getElementById('status-text');
-        
+        let lastMsgTime = Date.now();
+
         function formatTemp(value) {
             if (value === undefined || value === null || value === "..." || isNaN(parseFloat(value))) return "...";
             let val = parseFloat(value);
@@ -153,13 +194,17 @@
 
         client.on('connect', () => {
             client.subscribe('7091003_Checher_ESP32/all_data');
-            statusEl.innerText = "Статус: Онлайн";
-            statusEl.className = "status-online";
+            // При підключенні статус залишається сірим, поки не прийдуть перші дані (або можна відразу зелений)
         });
 
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
+                lastMsgTime = Date.now();
+                
+                statusEl.innerText = "Статус: Онлайн";
+                statusEl.className = "status-online";
+
                 document.getElementById('date').innerText = data.date || "...";
                 document.getElementById('time').innerText = data.time || "...";
                 document.getElementById('pres').innerText = data.korydor?.p || "...";
@@ -186,8 +231,16 @@
 
                 updateTempIcon('t_kor', data.korydor?.t, 't_kor_icon');
                 document.getElementById('h_kor').innerText = data.korydor?.h || "...";
-            } catch (e) { console.error("Data error"); }
+            } catch (e) { console.error("JSON error"); }
         });
+
+        // Перевірка активності сервера ESP32
+        setInterval(() => {
+            if (Date.now() - lastMsgTime > 40000) { // Якщо даних немає більше 40 сек
+                statusEl.innerText = "Статус: ESP32 вимкнений";
+                statusEl.className = "status-offline";
+            }
+        }, 10000);
     </script>
 </body>
 </html>
