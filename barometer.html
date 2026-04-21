@@ -114,25 +114,22 @@
     </main>
 
     <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const clientId = 'WebClient_' + Math.random().toString(16).substr(2, 8);
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: clientId });
         const statusEl = document.getElementById('status-text');
         
-        function validate(val) {
-            return (val === undefined || val === null || isNaN(parseFloat(val))) ? "..." : val;
-        }
-
         function formatTemp(value) {
-            let v = validate(value);
-            if (v === "...") return "...";
-            let num = parseFloat(v);
-            return num > 0 ? "+" + num.toFixed(1) : (num === 0 ? "0.0" : num.toFixed(1));
+            if (value === undefined || value === null || value === "..." || isNaN(parseFloat(value))) return "...";
+            let val = parseFloat(value);
+            return val > 0 ? "+" + val.toFixed(1) : (val === 0 ? "0.0" : val.toFixed(1));
         }
 
-        function updateTemp(id, value, iconId) {
+        function updateTempIcon(id, value, iconId) {
             const el = document.getElementById(id);
             const icon = document.getElementById(iconId);
-            el.innerText = formatTemp(value);
-            if (validate(value) !== "...") {
+            const valStr = formatTemp(value);
+            el.innerText = valStr;
+            if (valStr !== "...") {
                 icon.src = parseFloat(value) < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
             }
         }
@@ -140,58 +137,57 @@
         function updateBattery(levelId, textId, value) {
             const bar = document.getElementById(levelId);
             const text = document.getElementById(textId);
-            let v = validate(value);
-            
-            if (v === "...") {
+            if (value === undefined || value === null || value === "..." || isNaN(parseInt(value))) {
                 text.innerText = "...%";
                 bar.style.width = "0%";
-                bar.style.backgroundColor = "white"; // Білий якщо No Data
+                bar.style.backgroundColor = "white";
                 return;
             }
-            
-            let val = parseInt(v);
+            let val = parseInt(value);
             text.innerText = val + '%';
             bar.style.width = val + '%';
-            
-            // Логіка кольорів за вашим запитом
-            if (val >= 70) bar.style.backgroundColor = "#00FF00"; // Зелений
-            else if (val >= 20) bar.style.backgroundColor = "orange"; // Оранжевий
-            else bar.style.backgroundColor = "red"; // Червоний
+            if (val >= 70) bar.style.backgroundColor = "#00FF00";
+            else if (val >= 20) bar.style.backgroundColor = "orange";
+            else bar.style.backgroundColor = "red";
         }
 
         client.on('connect', () => {
             client.subscribe('7091003_Checher_ESP32/all_data');
-            statusEl.innerText = "Статус: Онлайн"; statusEl.className = "status-online";
+            statusEl.innerText = "Статус: Онлайн";
+            statusEl.className = "status-online";
         });
 
         client.on('message', (topic, message) => {
             try {
-                const d = JSON.parse(message.toString());
-                document.getElementById('date').innerText = validate(d.date);
-                document.getElementById('time').innerText = validate(d.time);
-                document.getElementById('pres').innerText = validate(d.korydor?.p);
+                const data = JSON.parse(message.toString());
+                document.getElementById('date').innerText = data.date || "...";
+                document.getElementById('time').innerText = data.time || "...";
+                document.getElementById('pres').innerText = data.korydor?.p || "...";
 
-                updateTemp('t_ext', d.vulytsia?.t, 't_ext_icon');
-                document.getElementById('h_ext').innerText = validate(d.vulytsia?.h);
-                updateBattery('bat_level_ext', 'bat_text_ext', d.vulytsia?.b);
-                document.getElementById('rssi_ext').innerText = validate(d.vulytsia?.rssi);
+                updateTempIcon('t_ext', data.vulytsia?.t, 't_ext_icon');
+                document.getElementById('h_ext').innerText = data.vulytsia?.h || "...";
+                updateBattery('bat_level_ext', 'bat_text_ext', data.vulytsia?.b);
+                document.getElementById('rssi_ext').innerText = data.vulytsia?.rssi ? data.vulytsia.rssi + " dBm" : "...";
 
-                updateTemp('t_kor', d.korydor?.t, 't_kor_icon');
-                document.getElementById('h_kor').innerText = validate(d.korydor?.h);
+                updateTempIcon('t_room', data.room?.t, 't_room_icon');
+                document.getElementById('h_room').innerText = data.room?.h || "...";
+                updateBattery('bat_level_room', 'bat_text_room', data.room?.b);
+                document.getElementById('rssi_room').innerText = data.room?.rssi ? data.room.rssi + " dBm" : "...";
 
-                updateTemp('t_room', d.room?.t, 't_room_icon');
-                document.getElementById('h_room').innerText = validate(d.room?.h);
-                updateBattery('bat_level_room', 'bat_text_room', d.room?.b);
-                document.getElementById('rssi_room').innerText = validate(d.room?.rssi);
+                updateTempIcon('t_kit', data.kitchen?.t, 't_kit_icon');
+                document.getElementById('h_kit').innerText = data.kitchen?.h || "...";
+                updateBattery('bat_level_kit', 'bat_text_kit', data.kitchen?.b);
+                document.getElementById('rssi_kit').innerText = data.kitchen?.rssi ? data.kitchen.rssi + " dBm" : "...";
 
-                updateTemp('t_kit', d.kitchen?.t, 't_kit_icon');
-                document.getElementById('h_kit').innerText = validate(d.kitchen?.h);
-                updateBattery('bat_level_kit', 'bat_text_kit', d.kitchen?.b);
-                document.getElementById('rssi_kit').innerText = validate(d.kitchen?.rssi);
+                updateTempIcon('t_bath', data.bath?.t, 't_bath_icon');
+                document.getElementById('h_bath').innerText = data.bath?.h || "...";
+                updateBattery('bat_level_bath', 'bat_text_bath', data.bath?.b);
+                document.getElementById('rssi_bath').innerText = data.bath?.rssi ? data.bath.rssi + " dBm" : "...";
 
-                updateTemp('t_bath', d.bath?.t, 't_bath_icon');
-                document.getElementById('h_bath').innerText = validate(d.bath?.h);
-                updateBattery('bat_level_bath', 'bat_text_bath', d.bath?.b);
-                document.getElementById('rssi_bath').innerText = validate(d.bath?.rssi);
-
-            } catch (e) { console.log("JSON error"); }
+                updateTempIcon('t_kor', data.korydor?.t, 't_kor_icon');
+                document.getElementById('h_kor').innerText = data.korydor?.h || "...";
+            } catch (e) { console.error("Data error"); }
+        });
+    </script>
+</body>
+</html>
