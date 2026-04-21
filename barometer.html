@@ -14,7 +14,6 @@
         }
         main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
         
-        /* Трохи підняли заголовок */
         h1 { color: #333; font-size: 1.6em; margin: 0; padding-bottom: 5px; }
 
         .card {
@@ -33,7 +32,7 @@
         }
 
         .sensor-line { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 2px 0; font-size: 1.3em; }
-        .sensor-value { font-weight: bold; } /* Колір керується через JS */
+        .sensor-value { font-weight: bold; }
         .unit { font-size: 0.8em; color: black; font-weight: bold; margin-left: -2px; }
         
         .icon-temp { width: 10px; height: auto; }
@@ -50,8 +49,9 @@
         .btn {
             text-decoration: none; background-color: #21B1FF; color: yellow; padding: 10px; 
             border-radius: 12px; border: 2px solid black; font-weight: bold; width: 300px; 
-            display: inline-block; margin-top: 6px; font-size: 1.1em;
+            display: inline-block; margin-top: 6px; font-size: 1.1em; transition: 0.2s;
         }
+        .btn:active { transform: scale(0.95); }
 
         .status-online { color: #08DD08; }
         .status-offline { color: #FF0000; }
@@ -144,7 +144,7 @@
         }
 
         function formatTemp(value) {
-            if (value === undefined || value === null || value === "..." || isNaN(parseFloat(value))) return "...";
+            if (value === undefined || value === null || isNaN(parseFloat(value))) return "...";
             let val = parseFloat(value);
             return val > 0 ? "+" + val.toFixed(1) : (val === 0 ? "0.0" : val.toFixed(1));
         }
@@ -152,20 +152,21 @@
         function updateTemp(id, value, iconId) {
             const el = document.getElementById(id);
             const icon = document.getElementById(iconId);
+            if (!el) return;
             const valStr = formatTemp(value);
             el.innerText = valStr;
             if (valStr !== "...") {
                 const t = parseFloat(value);
                 el.style.color = getTempColor(t);
-                icon.src = t < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+                if(icon) icon.src = t < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
             }
         }
 
         function updateHum(id, value) {
             const el = document.getElementById(id);
-            if (value === undefined || value === null || value === "..." || isNaN(parseFloat(value))) {
-                el.innerText = "...";
-                return;
+            if (!el) return;
+            if (value === undefined || value === null || isNaN(parseFloat(value))) {
+                el.innerText = "..."; return;
             }
             const h = parseFloat(value);
             el.innerText = h;
@@ -175,61 +176,12 @@
         function updateBattery(levelId, textId, value) {
             const bar = document.getElementById(levelId);
             const text = document.getElementById(textId);
-            if (value === undefined || value === null || value === "..." || isNaN(parseInt(value))) {
-                text.innerText = "...%";
-                bar.style.width = "0%"; bar.style.backgroundColor = "white";
-                return;
+            if (!bar || !text) return;
+            if (value === undefined || value === null || isNaN(parseInt(value))) {
+                text.innerText = "...%"; bar.style.width = "0%"; return;
             }
             let val = parseInt(value);
             text.innerText = val + '%';
             bar.style.width = val + '%';
-            if (val >= 70) bar.style.backgroundColor = "#00FF00";
-            else if (val >= 20) bar.style.backgroundColor = "orange";
-            else bar.style.backgroundColor = "red";
+            bar.style.backgroundColor = val >= 70 ? "#00FF00" : (val >= 20 ? "orange" : "red");
         }
-
-        client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
-
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                lastMsgTime = Date.now();
-                statusEl.innerText = "Статус: Онлайн"; statusEl.className = "status-online";
-
-                document.getElementById('date').innerText = data.date || "...";
-                document.getElementById('time').innerText = data.time || "...";
-                document.getElementById('pres').innerText = data.korydor?.p || "...";
-
-                updateTemp('t_ext', data.vulytsia?.t, 't_ext_icon');
-                updateHum('h_ext', data.vulytsia?.h);
-                updateBattery('bat_level_ext', 'bat_text_ext', data.vulytsia?.b);
-                document.getElementById('rssi_ext').innerText = data.vulytsia?.rssi ? data.vulytsia.rssi + " dBm" : "...";
-
-                updateTemp('t_room', data.room?.t, 't_room_icon');
-                updateHum('h_room', data.room?.h);
-                updateBattery('bat_level_room', 'bat_text_room', data.room?.b);
-                document.getElementById('rssi_room').innerText = data.room?.rssi ? data.room.rssi + " dBm" : "...";
-
-                updateTemp('t_kit', data.kitchen?.t, 't_kit_icon');
-                updateHum('h_kit', data.kitchen?.h);
-                updateBattery('bat_level_kit', 'bat_text_kit', data.kitchen?.b);
-                document.getElementById('rssi_kit').innerText = data.kitchen?.rssi ? data.kitchen.rssi + " dBm" : "...";
-
-                updateTemp('t_bath', data.bath?.t, 't_bath_icon');
-                updateHum('h_bath', data.bath?.h);
-                updateBattery('bat_level_bath', 'bat_text_bath', data.bath?.b);
-                document.getElementById('rssi_bath').innerText = data.bath?.rssi ? data.bath.rssi + " dBm" : "...";
-
-                updateTemp('t_kor', data.korydor?.t, 't_kor_icon');
-                updateHum('h_kor', data.korydor?.h);
-            } catch (e) { console.error("Data error"); }
-        });
-
-        setInterval(() => {
-            if (Date.now() - lastMsgTime > 40000) {
-                statusEl.innerText = "Статус: ESP32 вимкнений"; statusEl.className = "status-offline";
-            }
-        }, 10000);
-    </script>
-</body>
-</html>
