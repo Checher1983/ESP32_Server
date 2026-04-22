@@ -3,109 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Метеостанція - Оновлено</title>
+    <title>Метеостанція - ESP32</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
-        body { background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 90%; max-width: 600px; background: #e0f7e9; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-top: 20px; }
-        h1 { color: #333; text-transform: uppercase; margin-bottom: 10px; }
-        .main-data { font-size: 1.2rem; border-bottom: 1px dotted #999; padding-bottom: 10px; margin-bottom: 15px; }
-        .highlight { color: red; font-weight: bold; font-size: 1.4rem; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-top: 15px; }
-        .card { background: #c2f0d1; padding: 15px; border-radius: 15px; text-align: center; position: relative; }
-        .card h2 { color: #007bff; font-size: 1rem; margin-top: 0; text-decoration: underline; }
-        .temp { font-size: 1.5rem; font-weight: bold; margin: 5px 0; }
-        .hum { font-size: 1.2rem; color: #0056b3; }
-        .status-bar { margin-top: 20px; font-weight: bold; }
-        .status-online { color: #28a745; }
-        .status-offline { color: #dc3545; }
+        * { user-select: none; box-sizing: border-box; }
+        body { 
+            background-color: #E4EAF6; 
+            margin: 0; display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; font-family: sans-serif;
+        }
+        main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
+        h1 { color: #333; font-size: 1.6em; margin: 0; padding-bottom: 5px; }
+
+        .card {
+            background-color: #B2F2BB; padding: 10px; border-radius: 20px;
+            margin-bottom: 5px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .header-label { font-size: 1.2em; color: black; }
+        .header-value { color: red; font-weight: bold; }
+
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 5px; }
+
+        .section-title {
+            color: #21B1FF; font-weight: bold; text-decoration: underline;
+            text-transform: uppercase; font-size: 1em; margin-bottom: 4px; display: block;
+        }
+
+        .sensor-line { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 2px 0; font-size: 1.3em; }
+        .sensor-value { font-weight: bold; }
+        .unit { font-size: 0.8em; color: black; font-weight: bold; }
+        
+        .icon-temp { width: 12px; height: auto; }
+        .icon-drop { width: 22px; height: auto; }
+
+        .btn {
+            text-decoration: none; background-color: #21B1FF; color: yellow; padding: 10px; 
+            border-radius: 12px; border: 2px solid black; font-weight: bold; width: 300px; 
+            display: inline-block; margin-top: 6px; font-size: 1.1em;
+        }
+
+        .status-online { color: #08DD08; font-weight: bold; }
+        .status-offline { color: #FF0000; font-weight: bold; }
+        #status-text { font-size: 13px; margin-top: 6px; }
     </style>
 </head>
 <body>
+    <main>
+        <h1>МЕТЕОСТАНЦІЯ</h1>
 
-    <div class="container">
-        <h1>Метеостанція</h1>
-        <div class="main-data">
-            Дата: <span id="date" class="highlight">--.--.----</span><br>
-            Час: <span id="time" class="highlight">--:--:--</span><br>
-            Атмосферний тиск: <span id="pres" class="highlight">---</span> мм.рт.ст.
-        </div>
-
-        <div class="grid">
-            <div class="card">
-                <h2>ВУЛИЦЯ</h2>
-                <div class="temp"><span id="t_ext">...</span>°C</div>
-                <div class="hum"><span id="h_ext">...</span>%</div>
-            </div>
-            <div class="card">
-                <h2>КОРИДОР</h2>
-                <div class="temp"><span id="t_kor">...</span>°C</div>
-                <div class="hum"><span id="h_kor">...</span>%</div>
-            </div>
-            <div class="card">
-                <h2>КУХНЯ</h2>
-                <div class="temp"><span id="t_kit">...</span>°C</div>
-                <div class="hum"><span id="h_kit">...</span>%</div>
-            </div>
-            <div class="card">
-                <h2>ВАННА</h2>
-                <div class="temp"><span id="t_bath">...</span>°C</div>
-                <div class="hum"><span id="h_bath">...</span>%</div>
+        <div class="card">
+            <div class="header-label">Дата: <span id="date" class="header-value">...</span></div>
+            <div class="header-label">Час: <span id="time" class="header-value">...</span></div>
+            <div style="border-top: 1px dotted gray; margin-top: 4px; padding-top: 4px;">
+                Атмосферний тиск: <span id="pres" class="sensor-value" style="color:red;">...</span> <span class="unit">мм.рт.ст.</span>
             </div>
         </div>
 
-        <div id="status-text" class="status-bar status-offline">Статус: Підключення...</div>
-    </div>
+        <div class="grid-container">
+            <div class="card">
+                <span class="section-title">ВУЛИЦЯ</span>
+                <div class="sensor-line"><img src="img/Temp_High.png" class="icon-temp"><span id="t_ext" class="sensor-value">...</span><span class="unit">°C</span></div>
+                <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_ext" class="sensor-value">...</span><span class="unit">%</span></div>
+            </div>
+            <div class="card">
+                <span class="section-title">КІМНАТА</span>
+                <div class="sensor-line"><img src="img/Temp_High.png" class="icon-temp"><span id="t_room" class="sensor-value">...</span><span class="unit">°C</span></div>
+                <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_room" class="sensor-value">...</span><span class="unit">%</span></div>
+            </div>
+            <div class="card">
+                <span class="section-title">КУХНЯ</span>
+                <div class="sensor-line"><img src="img/Temp_High.png" class="icon-temp"><span id="t_kit" class="sensor-value">...</span><span class="unit">°C</span></div>
+                <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_kit" class="sensor-value">...</span><span class="unit">%</span></div>
+            </div>
+            <div class="card">
+                <span class="section-title">ВАННА</span>
+                <div class="sensor-line"><img src="img/Temp_High.png" class="icon-temp"><span id="t_bath" class="sensor-value">...</span><span class="unit">°C</span></div>
+                <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_bath" class="sensor-value">...</span><span class="unit">%</span></div>
+            </div>
+        </div>
+
+        <div class="card" style="max-width: 200px; margin: 0 auto 5px auto;">
+            <span class="section-title">КОРИДОР</span>
+            <div class="sensor-line"><img src="img/Temp_High.png" class="icon-temp"><span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span></div>
+            <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_kor" class="sensor-value">...</span><span class="unit">%</span></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <a href="logs.html" class="btn">Журнал та графіки</a>
+            <a href="index.html" class="btn">На головну</a>
+        </div>
+        <div id="status-text" class="status-offline">Статус: Очікування даних...</div>
+    </main>
 
     <script>
         const broker = "broker.emqx.io";
         const port = 8084;
         const topic = "7091003_Checher_ESP32/all_data";
-        const clientID = "WebClient_" + Math.random().toString(16).substr(2, 8);
+        const clientID = "WebBarom_" + Math.random().toString(16).substr(2, 8);
 
         const client = new Paho.MQTT.Client("wss://" + broker + ":" + port + "/mqtt", clientID);
 
-        client.onConnectionLost = (responseObject) => {
-            document.getElementById('status-text').innerHTML = "Статус: Офлайн (Перепідключення...)";
-            document.getElementById('status-text').className = "status-bar status-offline";
-            setTimeout(() => connect(), 5000);
-        };
+        function updateField(id, value, isTemp = false) {
+            const el = document.getElementById(id);
+            if (!el || value === undefined) return;
+            
+            if (isTemp) {
+                let val = parseFloat(value);
+                el.innerText = val > 0 ? "+" + val.toFixed(1) : val.toFixed(1);
+                el.style.color = val >= 20 ? "#007F0E" : "#21B1FF";
+            } else {
+                el.innerText = value;
+                el.style.color = "#007F0E";
+            }
+        }
 
         client.onMessageArrived = (message) => {
             try {
                 const data = JSON.parse(message.payloadString);
-                console.log("Дані:", data);
-                
-                // Оновлення основних даних
-                if(data.date) document.getElementById('date').innerText = data.date;
-                if(data.time) document.getElementById('time').innerText = data.time;
-                
-                // Коридор (з вашого ESP32 Server)
-                if(data.korydor) {
-                    document.getElementById('t_kor').innerText = data.korydor.t;
-                    document.getElementById('h_kor').innerText = data.korydor.h;
-                    document.getElementById('pres').innerText = data.korydor.p;
+                document.getElementById('status-text').innerText = "Статус: Онлайн";
+                document.getElementById('status-text').className = "status-online";
+
+                document.getElementById('date').innerText = data.date || "...";
+                document.getElementById('time').innerText = data.time || "...";
+
+                // Дані з ESP32 Server (Коридор)
+                if (data.korydor) {
+                    updateField('t_kor', data.korydor.t, true);
+                    updateField('h_kor', data.korydor.h);
+                    document.getElementById('pres').innerText = data.korydor.p || "...";
                 }
 
-                // Кухня / Ванна / Вулиця (якщо прийдуть з інших датчиків)
-                if(data.kitchen) {
-                    document.getElementById('t_kit').innerText = data.kitchen.t;
-                    document.getElementById('h_kit').innerText = data.kitchen.h;
+                // Дані з інших датчиків (якщо вони шлють у старих ключах)
+                if (data.room) {
+                    updateField('t_room', data.room.t, true);
+                    updateField('h_room', data.room.h);
                 }
-            } catch (e) {
-                console.error("Помилка JSON:", e);
-            }
+                if (data.vulytsia) {
+                    updateField('t_ext', data.vulytsia.t, true);
+                    updateField('h_ext', data.vulytsia.h);
+                }
+                if (data.kitchen) {
+                    updateField('t_kit', data.kitchen.t, true);
+                    updateField('h_kit', data.kitchen.h);
+                }
+                if (data.bath) {
+                    updateField('t_bath', data.bath.t, true);
+                    updateField('h_bath', data.bath.h);
+                }
+
+            } catch (e) { console.error("JSON Error", e); }
         };
 
-        function onConnect() {
-            console.log("Підключено до MQTT");
-            client.subscribe(topic);
-            document.getElementById('status-text').innerHTML = "Статус: Онлайн";
-            document.getElementById('status-text').className = "status-bar status-online";
-        }
+        client.onConnectionLost = () => {
+            document.getElementById('status-text').innerText = "Статус: Офлайн";
+            document.getElementById('status-text').className = "status-offline";
+            setTimeout(() => connect(), 5000);
+        };
 
         function connect() {
-            client.connect({onSuccess: onConnect, useSSL: true});
+            client.connect({onSuccess: () => client.subscribe(topic), useSSL: true});
         }
 
         connect();
