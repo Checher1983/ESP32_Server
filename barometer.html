@@ -2,16 +2,61 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Метеостанція - Оновлено</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
-        /* Твої стилі без змін */
-        .status-online { color: #08DD08; font-weight: bold; }
-        .status-offline { color: #FF0000; font-weight: bold; }
+        body { background-color: #f0f4f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 90%; max-width: 600px; background: #e0f7e9; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-top: 20px; }
+        h1 { color: #333; text-transform: uppercase; margin-bottom: 10px; }
+        .main-data { font-size: 1.2rem; border-bottom: 1px dotted #999; padding-bottom: 10px; margin-bottom: 15px; }
+        .highlight { color: red; font-weight: bold; font-size: 1.4rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 600px; margin-top: 15px; }
+        .card { background: #c2f0d1; padding: 15px; border-radius: 15px; text-align: center; position: relative; }
+        .card h2 { color: #007bff; font-size: 1rem; margin-top: 0; text-decoration: underline; }
+        .temp { font-size: 1.5rem; font-weight: bold; margin: 5px 0; }
+        .hum { font-size: 1.2rem; color: #0056b3; }
+        .status-bar { margin-top: 20px; font-weight: bold; }
+        .status-online { color: #28a745; }
+        .status-offline { color: #dc3545; }
     </style>
 </head>
 <body>
-    <div id="status-text">Статус: Підключення...</div>
+
+    <div class="container">
+        <h1>Метеостанція</h1>
+        <div class="main-data">
+            Дата: <span id="date" class="highlight">--.--.----</span><br>
+            Час: <span id="time" class="highlight">--:--:--</span><br>
+            Атмосферний тиск: <span id="pres" class="highlight">---</span> мм.рт.ст.
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>ВУЛИЦЯ</h2>
+                <div class="temp"><span id="t_ext">...</span>°C</div>
+                <div class="hum"><span id="h_ext">...</span>%</div>
+            </div>
+            <div class="card">
+                <h2>КОРИДОР</h2>
+                <div class="temp"><span id="t_kor">...</span>°C</div>
+                <div class="hum"><span id="h_kor">...</span>%</div>
+            </div>
+            <div class="card">
+                <h2>КУХНЯ</h2>
+                <div class="temp"><span id="t_kit">...</span>°C</div>
+                <div class="hum"><span id="h_kit">...</span>%</div>
+            </div>
+            <div class="card">
+                <h2>ВАННА</h2>
+                <div class="temp"><span id="t_bath">...</span>°C</div>
+                <div class="hum"><span id="h_bath">...</span>%</div>
+            </div>
+        </div>
+
+        <div id="status-text" class="status-bar status-offline">Статус: Підключення...</div>
+    </div>
+
     <script>
         const broker = "broker.emqx.io";
         const port = 8084;
@@ -19,48 +64,51 @@
         const clientID = "WebClient_" + Math.random().toString(16).substr(2, 8);
 
         const client = new Paho.MQTT.Client("wss://" + broker + ":" + port + "/mqtt", clientID);
-        let lastUpdate = Date.now();
 
-        client.onConnectionLost = (obj) => {
-            document.getElementById('status-text').innerHTML = "Статус: Помилка зв'язку";
-            document.getElementById('status-text').className = "status-offline";
-            setTimeout(() => client.connect({onSuccess: onConnect, useSSL: true}), 5000);
+        client.onConnectionLost = (responseObject) => {
+            document.getElementById('status-text').innerHTML = "Статус: Офлайн (Перепідключення...)";
+            document.getElementById('status-text').className = "status-bar status-offline";
+            setTimeout(() => connect(), 5000);
         };
 
-        client.onMessageArrived = (msg) => {
+        client.onMessageArrived = (message) => {
             try {
-                const data = JSON.parse(msg.payloadString);
-                lastUpdate = Date.now();
-                updateUI(data);
-            } catch (e) { console.error("JSON Error", e); }
+                const data = JSON.parse(message.payloadString);
+                console.log("Дані:", data);
+                
+                // Оновлення основних даних
+                if(data.date) document.getElementById('date').innerText = data.date;
+                if(data.time) document.getElementById('time').innerText = data.time;
+                
+                // Коридор (з вашого ESP32 Server)
+                if(data.korydor) {
+                    document.getElementById('t_kor').innerText = data.korydor.t;
+                    document.getElementById('h_kor').innerText = data.korydor.h;
+                    document.getElementById('pres').innerText = data.korydor.p;
+                }
+
+                // Кухня / Ванна / Вулиця (якщо прийдуть з інших датчиків)
+                if(data.kitchen) {
+                    document.getElementById('t_kit').innerText = data.kitchen.t;
+                    document.getElementById('h_kit').innerText = data.kitchen.h;
+                }
+            } catch (e) {
+                console.error("Помилка JSON:", e);
+            }
         };
 
         function onConnect() {
+            console.log("Підключено до MQTT");
             client.subscribe(topic);
             document.getElementById('status-text').innerHTML = "Статус: Онлайн";
-            document.getElementById('status-text').className = "status-online";
+            document.getElementById('status-text').className = "status-bar status-online";
         }
 
-        function updateUI(data) {
-            // Оновлюємо поля (приклади)
-            if(data.date) document.getElementById('date').innerText = data.date;
-            if(data.time) document.getElementById('time').innerText = data.time;
-            if(data.korydor) {
-                document.getElementById('t_kor').innerText = "+" + data.korydor.t;
-                document.getElementById('pres').innerText = data.korydor.p;
-            }
-            // Аналогічно для всіх інших зон (kitchen, bath, room)
+        function connect() {
+            client.connect({onSuccess: onConnect, useSSL: true});
         }
 
-        client.connect({onSuccess: onConnect, useSSL: true});
-
-        // Таймер перевірки "смерті" ESP32
-        setInterval(() => {
-            if (Date.now() - lastUpdate > 30000) {
-                document.getElementById('status-text').innerHTML = "Статус: ESP32 вимкнений";
-                document.getElementById('status-text').className = "status-offline";
-            }
-        }, 10000);
+        connect();
     </script>
 </body>
 </html>
