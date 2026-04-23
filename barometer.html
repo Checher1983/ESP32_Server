@@ -2,72 +2,67 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Метеостанція PCBA</title>
+    <title>Метеостанція Checher</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f4f8; text-align: center; color: #333; }
-        .container { max-width: 600px; margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header-box { background: #c8f7c5; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed #7bc043; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #eceff1; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+        .date-time { font-size: 1.2em; color: #d32f2f; font-weight: bold; margin-bottom: 5px; }
+        .pressure { font-size: 1.1em; color: #455a64; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .card { background: #e1f5fe; padding: 15px; border-radius: 12px; border: 1px solid #b3e5fc; }
-        .card.main { grid-column: span 2; background: #fff9c4; border-color: #fff176; }
-        .label { font-weight: bold; color: #0288d1; display: block; margin-bottom: 5px; text-transform: uppercase; }
-        .temp { font-size: 1.5em; font-weight: bold; color: #d32f2f; }
-        .hum { font-size: 1.2em; color: #1976d2; }
-        .meta { font-size: 0.8em; color: #666; margin-top: 10px; }
-        .status { margin-top: 20px; padding: 10px; font-weight: bold; border-radius: 20px; display: inline-block; }
-        .online { background: #e8f5e9; color: #2e7d32; }
+        .card { background: #f8f9fa; padding: 15px; border-radius: 15px; border-left: 5px solid #2196f3; transition: 0.3s; }
+        .card.active { border-left-color: #4caf50; }
+        .card h4 { margin: 0 0 10px 0; font-size: 0.9em; color: #78909c; text-transform: uppercase; }
+        .temp { font-size: 1.8em; font-weight: bold; color: #333; }
+        .hum { font-size: 1.1em; color: #0288d1; }
+        .meta { font-size: 0.75em; color: #999; margin-top: 10px; }
+        .kor-card { grid-column: span 2; background: #e8f5e9; border-left-color: #4caf50; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>МЕТЕОСТАНЦІЯ</h2>
-    
-    <div class="header-box">
-        <div>Дата: <span id="date" style="color:red; font-weight:bold;">--.--.----</span></div>
-        <div>Час: <span id="time" style="color:red; font-weight:bold;">--:--:--</span></div>
-        <div style="margin-top:5px;">Тиск: <span id="pres" style="font-weight:bold;">--</span> мм.рт.ст.</div>
+    <div class="header">
+        <div class="date-time"><span id="date">--.--.----</span> | <span id="time">--:--:--</span></div>
+        <div class="pressure">Тиск: <span id="pres">--</span> мм.рт.ст.</div>
     </div>
 
     <div class="grid">
-        <div class="card">
-            <span class="label">Вулиця</span>
-            <div id="t_ext" class="temp">... °C</div>
-            <div id="h_ext" class="hum">... %</div>
-            <div class="meta">RSSI: <span id="rssi_ext">...</span> | Bat: <span id="bat_ext">...</span>%</div>
+        <div class="card kor-card">
+            <h4>Коридор (PCBA)</h4>
+            <div id="t_kor" class="temp">--.- °C</div>
+            <div id="h_kor" class="hum">-- %</div>
         </div>
 
-        <div class="card">
-            <span class="label">Кімната</span>
-            <div id="t_room" class="temp">... °C</div>
-            <div id="h_room" class="hum">... %</div>
-            <div class="meta">RSSI: <span id="rssi_room">...</span> | Bat: <span id="bat_room">...</span>%</div>
+        <div class="card" id="card_ext">
+            <h4>Вулиця</h4>
+            <div id="t_ext" class="temp">--.-</div>
+            <div id="h_ext" class="hum">--</div>
+            <div class="meta">RSSI: <span id="rssi_ext">--</span> | Bat: <span id="bat_ext">--</span>%</div>
         </div>
 
-        <div class="card">
-            <span class="label">Кухня</span>
-            <div id="t_kit" class="temp">... °C</div>
-            <div id="h_kit" class="hum">... %</div>
-            <div class="meta">RSSI: <span id="rssi_kit">...</span> | Bat: <span id="bat_kit">...</span>%</div>
+        <div class="card" id="card_room">
+            <h4>Кімната</h4>
+            <div id="t_room" class="temp">--.-</div>
+            <div id="h_room" class="hum">--</div>
+            <div class="meta">RSSI: <span id="rssi_room">--</span> | Bat: <span id="bat_room">--</span>%</div>
         </div>
 
-        <div class="card">
-            <span class="label">Ванна</span>
-            <div id="t_bath" class="temp">... °C</div>
-            <div id="h_bath" class="hum">... %</div>
-            <div class="meta">RSSI: <span id="rssi_bath">...</span> | Bat: <span id="bat_bath">...</span>%</div>
+        <div class="card" id="card_kit">
+            <h4>Кухня</h4>
+            <div id="t_kit" class="temp">--.-</div>
+            <div id="h_kit" class="hum">--</div>
+            <div class="meta">RSSI: <span id="rssi_kit">--</span> | Bat: <span id="bat_kit">--</span>%</div>
         </div>
 
-        <div class="card main">
-            <span class="label" style="color:#388e3c;">Коридор (PCBA)</span>
-            <div id="t_kor" class="temp" style="color:#2e7d32;">... °C</div>
-            <div id="h_kor" class="hum">... %</div>
+        <div class="card" id="card_bath">
+            <h4>Ванна</h4>
+            <div id="t_bath" class="temp">--.-</div>
+            <div id="h_bath" class="hum">--</div>
+            <div class="meta">RSSI: <span id="rssi_bath">--</span> | Bat: <span id="bat_bath">--</span>%</div>
         </div>
     </div>
-
-    <div class="status online">Статус: Онлайн</div>
 </div>
 
 <script>
@@ -75,28 +70,28 @@
     const topic = "7091003_Checher_ESP32/all_data";
 
     client.on('connect', () => {
-        console.log("Connected to MQTT");
+        console.log("MQTT Connected");
         client.subscribe(topic);
     });
 
     client.on('message', (t, msg) => {
         try {
             const data = JSON.parse(msg.toString());
-            console.log("Отримано дані:", data); // Дивись це в консолі F12
+            console.log("Data Recv:", data);
 
-            // Основні
-            document.getElementById('date').innerText = data.date || "--";
-            document.getElementById('time').innerText = data.time || "--";
+            // Основне
+            document.getElementById('date').innerText = data.date;
+            document.getElementById('time').innerText = data.time;
             document.getElementById('pres').innerText = data.korydor?.p || "--";
 
             // Коридор
-            if(data.korydor) {
+            if (data.korydor) {
                 document.getElementById('t_kor').innerText = data.korydor.t + " °C";
                 document.getElementById('h_kor').innerText = data.korydor.h + " %";
             }
 
-            // Мапінг JSON -> HTML
-            // Ключ у JSON : Префікс ID у HTML
+            // Динамічні зони
+            // Ключ у JSON : ID у HTML
             const sensors = {
                 vulytsia: 'ext',
                 room: 'room',
@@ -107,19 +102,22 @@
             Object.keys(sensors).forEach(key => {
                 const id = sensors[key];
                 const val = data[key];
+                const card = document.getElementById('card_' + id);
                 
-                if (val) {
-                    document.getElementById(`t_${id}`).innerText = val.t + " °C";
-                    document.getElementById(`h_${id}`).innerText = val.h + " %";
-                    document.getElementById(`rssi_${id}`).innerText = val.rssi;
-                    document.getElementById(`bat_${id}`).innerText = val.b;
+                if (val && val.t !== undefined) {
+                    document.getElementById('t_' + id).innerText = val.t + " °C";
+                    document.getElementById('h_' + id).innerText = val.h + " %";
+                    document.getElementById('rssi_' + id).innerText = val.rssi;
+                    document.getElementById('bat_' + id).innerText = val.b;
+                    card.classList.add('active');
                 } else {
-                    document.getElementById(`t_${id}`).innerText = "---";
+                    document.getElementById('t_' + id).innerText = "OFFLINE";
+                    card.classList.remove('active');
                 }
             });
 
         } catch (e) {
-            console.error("Помилка парсингу:", e);
+            console.error("JSON Error", e);
         }
     });
 </script>
