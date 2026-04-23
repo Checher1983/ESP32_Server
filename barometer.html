@@ -42,21 +42,24 @@
 
         <div class="grid-container">
             <script>
-                const zones = [{id: 'ext', n: 'ВУЛИЦЯ'}, {id: 'room', n: 'КІМНАТА'}, {id: 'kit', n: 'КУХНЯ'}, {id: 'bath', n: 'ВАННА'}];
-                zones.forEach(z => document.write(`
-                    <div class="card">
-                        <span class="section-title">${z.n}</span>
-                        <div class="sensor-line"><img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
-                        <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
-                        <div class="card-footer">
-                            <span style="font-size:0.7em;">BLE: <span id="rssi_${z.id}">...</span></span>
-                            <div style="display:flex; align-items:center; gap:1px;">
-                                <div class="battery-body"><div id="bat_l_${z.id}" class="battery-level"></div></div>
-                                <div class="battery-tip"></div>
-                                <span id="bat_t_${z.id}" style="font-size: 0.7em; font-weight: bold; margin-left: 2px;">...%</span>
+                const zones = [{id: 'ext', name: 'ВУЛИЦЯ'}, {id: 'room', name: 'КІМНАТА'}, {id: 'kit', name: 'КУХНЯ'}, {id: 'bath', name: 'ВАННА'}];
+                zones.forEach(z => {
+                    document.write(`
+                        <div class="card">
+                            <span class="section-title">${z.name}</span>
+                            <div class="sensor-line"><img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
+                            <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
+                            <div class="card-footer">
+                                <span style="font-size: 0.7em;">BLE: <span id="rssi_${z.id}">...</span></span>
+                                <div style="display: flex; align-items: center; gap: 1px;">
+                                    <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
+                                    <div class="battery-tip"></div>
+                                    <span id="bat_text_${z.id}" style="font-size: 0.7em; font-weight: bold; margin-left: 2px;">...%</span>
+                                </div>
                             </div>
                         </div>
-                    </div>`));
+                    `);
+                });
             </script>
         </div>
 
@@ -65,48 +68,65 @@
             <div class="sensor-line"><img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span></div>
             <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_kor" class="sensor-value">...</span><span class="unit">%</span></div>
         </div>
+
         <a href="logs.html" class="btn">Журнал та графіки</a>
-        <div id="status" class="status-offline" style="font-size:13px; margin-top:5px;">Статус: Очікування...</div>
+        <div id="status-text" class="status-offline" style="font-size: 13px; margin-top: 5px;">Статус: Очікування...</div>
     </main>
 
     <script>
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const getTCol = (t) => t >= 30 ? "#f00" : t >= 24 ? "#ff6a00" : t >= 18 ? "#007f0e" : t >= 0 ? "#21b1ff" : "#0026ff";
+        const statusEl = document.getElementById('status-text');
 
-        function upUI(id, val, icon) {
+        function getTempColor(t) {
+            if (t >= 30) return "#FF0000"; if (t >= 24) return "#FF6A00"; if (t >= 18) return "#007F0E"; if (t >= 0) return "#21B1FF"; return "#0026FF";
+        }
+
+        function updateValue(id, val, isTemp, iconId) {
             const el = document.getElementById(id); if(!el) return;
             if(!val && val !== 0) { el.innerText = "..."; el.style.color = "black"; return; }
             let v = parseFloat(val);
-            if(id.startsWith('t_')) { el.innerText = (v>0?"+":"")+v.toFixed(1); el.style.color = getTCol(v); if(icon) document.getElementById(icon).src = v<0?'img/Temp_Low.png':'img/Temp_High.png'; }
-            else { el.innerText = val; el.style.color = "#007f0e"; }
+            if(isTemp) {
+                el.innerText = (v > 0 ? "+" : "") + v.toFixed(1);
+                el.style.color = getTempColor(v);
+                if(iconId) document.getElementById(iconId).src = v < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+            } else {
+                el.innerText = val; el.style.color = "#007F0E";
+            }
         }
 
-        function upBat(id, val) {
-            const bar = document.getElementById('bat_l_'+id), txt = document.getElementById('bat_t_'+id);
+        function updateBat(lvlId, txtId, val) {
+            const bar = document.getElementById(lvlId), txt = document.getElementById(txtId);
             if(!bar || !txt) return;
             let b = parseInt(val);
-            if(isNaN(b)) { txt.innerText="...%"; bar.style.width="0%"; bar.style.backgroundColor="#ccc"; return; }
-            txt.innerText = b+"%"; bar.style.width = b+"%";
-            bar.style.backgroundColor = b > 70 ? "#08dd08" : (b > 25 ? "#ffd700" : "#f00");
+            if(isNaN(b)) { txt.innerText = "...%"; bar.style.width = "0%"; bar.style.backgroundColor = "#ccc"; return; }
+            txt.innerText = b + "%"; bar.style.width = b + "%";
+            bar.style.backgroundColor = b > 70 ? "#08DD08" : (b > 25 ? "#FFD700" : "#FF0000");
         }
 
         client.on('connect', () => client.subscribe('7091003_Checher_ESP32/all_data'));
-        client.on('message', (t, m) => {
-            try {
-                const d = JSON.parse(m.toString());
-                document.getElementById('status').innerText = "Статус: Онлайн"; document.getElementById('status').className = "status-online";
-                document.getElementById('date').innerText = d.date || "...";
-                document.getElementById('time').innerText = d.time || "...";
-                document.getElementById('pres').innerText = d.korydor?.p || "...";
 
-                upUI('t_kor', d.korydor?.t, 't_kor_icon'); upUI('h_kor', d.korydor?.h);
-                const zones = {ext: d.vulytsia, room: d.room, kit: d.kitchen, bath: d.bath};
-                Object.keys(zones).forEach(k => {
-                    upUI('t_'+k, zones[k]?.t, 't_'+k+'_icon'); upUI('h_'+k, zones[k]?.h);
-                    upBat(k, zones[k]?.b);
-                    if(document.getElementById('rssi_'+k)) document.getElementById('rssi_'+k).innerText = zones[k]?.rssi || "...";
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                statusEl.innerText = "Статус: Онлайн"; statusEl.className = "status-online";
+
+                document.getElementById('date').innerText = data.date || "...";
+                document.getElementById('time').innerText = data.time || "...";
+                document.getElementById('pres').innerText = data.korydor?.p || "...";
+
+                // Коридор
+                updateValue('t_kor', data.korydor?.t, true, 't_kor_icon');
+                updateValue('h_kor', data.korydor?.h, false);
+
+                // Зони
+                const zMap = {ext: data.vulytsia, room: data.room, kit: data.kitchen, bath: data.bath};
+                Object.keys(zMap).forEach(id => {
+                    updateValue('t_'+id, zMap[id]?.t, true, 't_'+id+'_icon');
+                    updateValue('h_'+id, zMap[id]?.h, false);
+                    updateBat('bat_level_'+id, 'bat_text_'+id, zMap[id]?.b);
+                    if(document.getElementById('rssi_'+id)) document.getElementById('rssi_'+id).innerText = zMap[id]?.rssi || "...";
                 });
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error("MQTT Error:", e); }
         });
     </script>
 </body>
