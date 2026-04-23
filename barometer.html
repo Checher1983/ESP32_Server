@@ -6,7 +6,6 @@
     <title>Метеостанція - ESP32</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
-        /* Весь ваш CSS залишається без змін */
         * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
         body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; overflow-y: auto; }
         main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
@@ -22,15 +21,12 @@
         .icon-temp { width: 10px; height: auto; }
         .icon-drop { width: 20px; height: auto; }
         .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px solid rgba(0,0,0,0.05); }
-        .battery-container { display: flex; align-items: center; gap: 1px; }
         .battery-body { width: 28px; height: 14px; border: 1.5px solid black; border-radius: 2px; position: relative; background: white; overflow: hidden; }
         .battery-level { height: 100%; width: 0%; transition: 0.5s; }
         .battery-tip { width: 2px; height: 6px; background: black; border-radius: 0 1px 1px 0; }
-        .rssi-text { font-size: 0.75em; color: #444; font-weight: bold; }
         .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 10px; border-radius: 12px; border: 2px solid black; font-weight: bold; width: 300px; display: inline-block; margin-top: 6px; font-size: 1.1em; }
         .status-online { color: #08DD08; font-weight: bold; }
         .status-offline { color: #FF0000; font-weight: bold; }
-        #status-text { font-size: 13px; font-weight: bold; margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -46,24 +42,21 @@
 
         <div class="grid-container">
             <script>
-                const zones = [{id: 'ext', name: 'ВУЛИЦЯ'}, {id: 'room', name: 'КІМНАТА'}, {id: 'kit', name: 'КУХНЯ'}, {id: 'bath', name: 'ВАННА'}];
-                zones.forEach(z => {
-                    document.write(`
-                        <div class="card">
-                            <span class="section-title">${z.name}</span>
-                            <div class="sensor-line"><img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
-                            <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
-                            <div class="card-footer">
-                                <span class="rssi-text">BLE: <span id="rssi_${z.id}">...</span></span>
-                                <div class="battery-container">
-                                    <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
-                                    <div class="battery-tip"></div>
-                                    <span id="bat_text_${z.id}" style="font-size: 0.7em; font-weight: bold; margin-left: 2px;">...%</span>
-                                </div>
+                const zones = [{id: 'ext', n: 'ВУЛИЦЯ'}, {id: 'room', n: 'КІМНАТА'}, {id: 'kit', n: 'КУХНЯ'}, {id: 'bath', n: 'ВАННА'}];
+                zones.forEach(z => document.write(`
+                    <div class="card">
+                        <span class="section-title">${z.n}</span>
+                        <div class="sensor-line"><img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
+                        <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
+                        <div class="card-footer">
+                            <span style="font-size:0.7em;">BLE: <span id="rssi_${z.id}">...</span></span>
+                            <div style="display:flex; align-items:center; gap:1px;">
+                                <div class="battery-body"><div id="bat_l_${z.id}" class="battery-level"></div></div>
+                                <div class="battery-tip"></div>
+                                <span id="bat_t_${z.id}" style="font-size: 0.7em; font-weight: bold; margin-left: 2px;">...%</span>
                             </div>
                         </div>
-                    `);
-                });
+                    </div>`));
             </script>
         </div>
 
@@ -72,91 +65,49 @@
             <div class="sensor-line"><img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span></div>
             <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_kor" class="sensor-value">...</span><span class="unit">%</span></div>
         </div>
-
         <a href="logs.html" class="btn">Журнал та графіки</a>
-        <div id="status-text" class="status-offline">Статус: Очікування даних...</div>
+        <div id="status" class="status-offline" style="font-size:13px; margin-top:5px;">Статус: Очікування...</div>
     </main>
 
     <script>
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const statusEl = document.getElementById('status-text');
-        let lastMsgTime = Date.now();
+        const getTCol = (t) => t >= 30 ? "#f00" : t >= 24 ? "#ff6a00" : t >= 18 ? "#007f0e" : t >= 0 ? "#21b1ff" : "#0026ff";
 
-        function getTempColor(t) {
-            if (t >= 30) return "#FF0000"; if (t >= 24) return "#FF6A00"; if (t >= 18) return "#007F0E"; if (t >= 0) return "#21B1FF"; return "#0026FF";
+        function upUI(id, val, icon) {
+            const el = document.getElementById(id); if(!el) return;
+            if(!val && val !== 0) { el.innerText = "..."; el.style.color = "black"; return; }
+            let v = parseFloat(val);
+            if(id.startsWith('t_')) { el.innerText = (v>0?"+":"")+v.toFixed(1); el.style.color = getTCol(v); if(icon) document.getElementById(icon).src = v<0?'img/Temp_Low.png':'img/Temp_High.png'; }
+            else { el.innerText = val; el.style.color = "#007f0e"; }
         }
 
-        function updateTemp(id, value, iconId) {
-            const el = document.getElementById(id);
-            if (!value || value === "No Data") { el.innerText = "..."; el.style.color = "black"; return; }
-            let t = parseFloat(value);
-            el.innerText = (t > 0 ? "+" : "") + t.toFixed(1);
-            el.style.color = getTempColor(t);
-            if (iconId) document.getElementById(iconId).src = t < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+        function upBat(id, val) {
+            const bar = document.getElementById('bat_l_'+id), txt = document.getElementById('bat_t_'+id);
+            if(!bar || !txt) return;
+            let b = parseInt(val);
+            if(isNaN(b)) { txt.innerText="...%"; bar.style.width="0%"; bar.style.backgroundColor="#ccc"; return; }
+            txt.innerText = b+"%"; bar.style.width = b+"%";
+            bar.style.backgroundColor = b > 70 ? "#08dd08" : (b > 25 ? "#ffd700" : "#f00");
         }
 
-        function updateHum(id, value) {
-            const el = document.getElementById(id);
-            if (!value || value === "No Data") { el.innerText = "..."; el.style.color = "black"; return; }
-            el.innerText = value;
-            el.style.color = "#007F0E";
-        }
+        client.on('connect', () => client.subscribe('7091003_Checher_ESP32/all_data'));
+        client.on('message', (t, m) => {
+            try {
+                const d = JSON.parse(m.toString());
+                document.getElementById('status').innerText = "Статус: Онлайн"; document.getElementById('status').className = "status-online";
+                document.getElementById('date').innerText = d.date || "...";
+                document.getElementById('time').innerText = d.time || "...";
+                document.getElementById('pres').innerText = d.korydor?.p || "...";
 
-        function updateBattery(levelId, textId, value) {
-            const bar = document.getElementById(levelId);
-            const txt = document.getElementById(textId);
-            let b = parseInt(value);
-            // Якщо 0 або помилка - показуємо порожньо
-            if (isNaN(b) || value === null) {
-                txt.innerText = "...%"; bar.style.width = "0%"; bar.style.backgroundColor = "white"; return;
-            }
-            txt.innerText = b + "%";
-            bar.style.width = b + "%";
-            bar.style.backgroundColor = b > 70 ? "#08DD08" : (b > 25 ? "#FFD700" : "#FF0000");
-        }
-
-        client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
-
-        client.on('message', (topic, message) => {
-            const data = JSON.parse(message.toString());
-            lastMsgTime = Date.now();
-            statusEl.innerText = "Статус: Онлайн"; statusEl.className = "status-online";
-
-            document.getElementById('date').innerText = data.date || "...";
-            document.getElementById('time').innerText = data.time || "...";
-            document.getElementById('pres').innerText = data.korydor?.p || "...";
-
-            // Оновлення зон (відповідно до назв у вашому JSON)
-            updateTemp('t_ext', data.vulytsia?.t, 't_ext_icon');
-            updateHum('h_ext', data.vulytsia?.h);
-            updateBattery('bat_level_ext', 'bat_text_ext', data.vulytsia?.b);
-            document.getElementById('rssi_ext').innerText = data.vulytsia?.rssi || "...";
-
-            updateTemp('t_room', data.room?.t, 't_room_icon');
-            updateHum('h_room', data.room?.h);
-            updateBattery('bat_level_room', 'bat_text_room', data.room?.b);
-            document.getElementById('rssi_room').innerText = data.room?.rssi || "...";
-
-            updateTemp('t_kit', data.kitchen?.t, 't_kit_icon');
-            updateHum('h_kit', data.kitchen?.h);
-            updateBattery('bat_level_kit', 'bat_text_kit', data.kitchen?.b);
-            document.getElementById('rssi_kit').innerText = data.kitchen?.rssi || "...";
-
-            updateTemp('t_bath', data.bath?.t, 't_bath_icon');
-            updateHum('h_bath', data.bath?.h);
-            updateBattery('bat_level_bath', 'bat_text_bath', data.bath?.b);
-            document.getElementById('rssi_bath').innerText = data.bath?.rssi || "...";
-
-            updateTemp('t_kor', data.korydor?.t, 't_kor_icon');
-            updateHum('h_kor', data.korydor?.h);
+                upUI('t_kor', d.korydor?.t, 't_kor_icon'); upUI('h_kor', d.korydor?.h);
+                const zones = {ext: d.vulytsia, room: d.room, kit: d.kitchen, bath: d.bath};
+                Object.keys(zones).forEach(k => {
+                    upUI('t_'+k, zones[k]?.t, 't_'+k+'_icon'); upUI('h_'+k, zones[k]?.h);
+                    upBat(k, zones[k]?.b);
+                    if(document.getElementById('rssi_'+k)) document.getElementById('rssi_'+k).innerText = zones[k]?.rssi || "...";
+                });
+            } catch(e) { console.error(e); }
         });
-
-        // Перевірка "смерті" зв'язку раз на 10 сек
-        setInterval(() => {
-            if (Date.now() - lastMsgTime > 60000) { // Збільшив до 60 сек
-                statusEl.innerText = "Статус: ESP32 вимкнений"; statusEl.className = "status-offline";
-            }
-        }, 10000);
     </script>
 </body>
 </html>
