@@ -42,6 +42,7 @@
 
         <div class="grid-container">
             <script>
+                // Тут id мають суворо збігатися з тими, що JS використовує для оновлення
                 const zones = [{id: 'ext', name: 'ВУЛИЦЯ'}, {id: 'room', name: 'КІМНАТА'}, {id: 'kit', name: 'КУХНЯ'}, {id: 'bath', name: 'ВАННА'}];
                 zones.forEach(z => {
                     document.write(`
@@ -50,7 +51,7 @@
                             <div class="sensor-line"><img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp"><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
                             <div class="sensor-line"><img src="img/Drop.png" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
                             <div class="card-footer">
-                                <span style="font-size: 0.7em;">BLE: <span id="rssi_${z.id}">...</span></span>
+                                <span style="font-size: 0.7em;">RSSI: <span id="rssi_${z.id}">...</span></span>
                                 <div style="display: flex; align-items: center; gap: 1px;">
                                     <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
                                     <div class="battery-tip"></div>
@@ -83,7 +84,7 @@
 
         function updateValue(id, val, isTemp, iconId) {
             const el = document.getElementById(id); if(!el) return;
-            if(!val && val !== 0) { el.innerText = "..."; el.style.color = "black"; return; }
+            if(val === null || val === undefined) { el.innerText = "..."; el.style.color = "black"; return; }
             let v = parseFloat(val);
             if(isTemp) {
                 el.innerText = (v > 0 ? "+" : "") + v.toFixed(1);
@@ -103,7 +104,10 @@
             bar.style.backgroundColor = b > 70 ? "#08DD08" : (b > 25 ? "#FFD700" : "#FF0000");
         }
 
-        client.on('connect', () => client.subscribe('7091003_Checher_ESP32/all_data'));
+        client.on('connect', () => {
+            console.log("Connected to MQTT");
+            client.subscribe('7091003_Checher_ESP32/all_data');
+        });
 
         client.on('message', (topic, message) => {
             try {
@@ -118,13 +122,23 @@
                 updateValue('t_kor', data.korydor?.t, true, 't_kor_icon');
                 updateValue('h_kor', data.korydor?.h, false);
 
-                // Зони
-                const zMap = {ext: data.vulytsia, room: data.room, kit: data.kitchen, bath: data.bath};
+                // Зони - ТУТ ВИПРАВЛЕНО МАПІНГ
+                // Мапимо ключі з JSON на ID в HTML
+                const zMap = {
+                    ext: data.vulytsia,
+                    room: data.room,
+                    kit: data.kitchen, // В JSON "kitchen", в HTML id "kit"
+                    bath: data.bath
+                };
+
                 Object.keys(zMap).forEach(id => {
-                    updateValue('t_'+id, zMap[id]?.t, true, 't_'+id+'_icon');
-                    updateValue('h_'+id, zMap[id]?.h, false);
-                    updateBat('bat_level_'+id, 'bat_text_'+id, zMap[id]?.b);
-                    if(document.getElementById('rssi_'+id)) document.getElementById('rssi_'+id).innerText = zMap[id]?.rssi || "...";
+                    const zoneData = zMap[id];
+                    updateValue('t_'+id, zoneData?.t, true, 't_'+id+'_icon');
+                    updateValue('h_'+id, zoneData?.h, false);
+                    updateBat('bat_level_'+id, 'bat_text_'+id, zoneData?.b);
+                    if(document.getElementById('rssi_'+id)) {
+                        document.getElementById('rssi_'+id).innerText = zoneData?.rssi || "...";
+                    }
                 });
             } catch(e) { console.error("MQTT Error:", e); }
         });
