@@ -3,195 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Метеостанція - ESP32</title>
+    <title>Метеостанція</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
-        * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
-        body { 
-            background-color: #E4EAF6; 
-            margin: 0; display: flex; justify-content: center; align-items: center; 
-            min-height: 100vh; font-family: sans-serif; overflow-y: auto;
-        }
-        main { text-align: center; padding: 10px; width: 100%; max-width: 400px; }
-        
-        h1 { color: #333; font-size: 1.6em; margin: 10px 0; }
-
-        .card {
-            background-color: #B2F2BB; padding: 10px; border-radius: 20px;
-            margin-bottom: 8px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .header-val { color: red; font-weight: bold; }
-
-        .grid-container {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-        }
-
-        .section-title {
-            color: #21B1FF; font-weight: bold; text-decoration: underline;
-            font-size: 0.9em; margin-bottom: 5px; display: block;
-        }
-
-        .sensor-row { display: flex; align-items: center; justify-content: center; margin: 4px 0; }
-        .val { font-weight: bold; font-size: 1.4em; margin: 0 4px; }
-        .unit { font-size: 0.8em; font-weight: bold; }
-
-        /* Батарейка */
-        .bat-container {
-            display: flex; align-items: center; justify-content: space-between;
-            font-size: 0.7em; margin-top: 5px; width: 100%;
-        }
-        .bat-body {
-            width: 28px; height: 14px; border: 1px solid #555;
-            position: relative; border-radius: 2px; background: #fff;
-        }
-        .bat-level { height: 100%; background: #08DD08; width: 0%; transition: 0.5s; }
-
-        #mqtt-status { font-weight: bold; margin-top: 10px; font-size: 0.8em; }
-        .status-online { color: #08DD08; }
-        .status-offline { color: red; }
+        body { background-color: #E4EAF6; font-family: sans-serif; display: flex; justify-content: center; padding: 10px; margin: 0; }
+        .card { background-color: #B2F2BB; padding: 10px; border-radius: 15px; border: 1px solid #99d9a4; margin-bottom: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 400px; }
+        .val { font-weight: bold; font-size: 1.3em; color: #d32f2f; }
+        .unit { font-size: 0.7em; color: #555; }
+        .status-on { color: #2e7d32; font-weight: bold; }
+        .status-off { color: #c62828; font-weight: bold; }
+        .bat-bar { width: 30px; height: 12px; border: 1px solid #333; display: inline-block; background: #eee; }
+        .bat-f { height: 100%; background: #4caf50; }
     </style>
 </head>
 <body>
+    <div style="width: 100%; max-width: 400px;">
+        <h2 style="text-align: center; color: #333;">МЕТЕО-ESP32</h2>
+        
+        <div class="card">
+            <span id="date">...</span> | <span id="time">...</span><br>
+            Тиск: <span id="pres" class="val">...</span> <span class="unit">мм.рт.ст.</span>
+        </div>
 
-<main>
-    <h1>МЕТЕОСТАНЦІЯ</h1>
+        <div class="grid">
+            <div class="card"><b>ВУЛИЦЯ</b><br><span id="t_ext" class="val">...</span><span class="unit">°C</span><br><span id="h_ext" class="val">...</span><span class="unit">%</span><br><div class="bat-bar"><div id="b_ext" class="bat-f"></div></div></div>
+            <div class="card"><b>КІМНАТА</b><br><span id="t_room" class="val">...</span><span class="unit">°C</span><br><span id="h_room" class="val">...</span><span class="unit">%</span><br><div class="bat-bar"><div id="b_room" class="bat-f"></div></div></div>
+            <div class="card"><b>КУХНЯ</b><br><span id="t_kit" class="val">...</span><span class="unit">°C</span><br><span id="h_kit" class="val">...</span><span class="unit">%</span><br><div class="bat-bar"><div id="b_kit" class="bat-f"></div></div></div>
+            <div class="card"><b>ВАННА</b><br><span id="t_bath" class="val">...</span><span class="unit">°C</span><br><span id="h_bath" class="val">...</span><span class="unit">%</span><br><div class="bat-bar"><div id="b_bath" class="bat-f"></div></div></div>
+        </div>
 
-    <div class="card">
-        <div>Дата: <span id="date" class="header-val">...</span> | Час: <span id="time" class="header-val">...</span></div>
-        <div style="margin-top: 5px;">Тиск: <span id="pres" class="header-val">...</span> <span class="unit">мм.рт.ст.</span></div>
+        <div class="card" style="width: 50%; margin: 10px auto;"><b>КОРИДОР</b><br><span id="t_kor" class="val">...</span><span class="unit">°C</span><br><span id="h_kor" class="val">...</span><span class="unit">%</span></div>
+        
+        <div id="st" class="status-off" style="text-align: center; font-size: 0.8em;">Статус: Офлайн</div>
     </div>
 
-    <div class="grid-container">
-        <div class="card">
-            <span class="section-title">ВУЛИЦЯ</span>
-            <div class="sensor-row">
-                <span class="val" id="t_ext">...</span><span class="unit">°C</span>
-            </div>
-            <div class="sensor-row">
-                <span class="val" id="h_ext">...</span><span class="unit">%</span>
-            </div>
-            <div class="bat-container">
-                <span>RSSI: <span id="rssi_ext">...</span></span>
-                <div class="bat-body"><div id="bat_level_ext" class="bat-level"></div></div>
-            </div>
-        </div>
+    <script>
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            clientId: 'MeteoWeb_' + Math.random().toString(16).substring(2, 10)
+        });
 
-        <div class="card">
-            <span class="section-title">КІМНАТА</span>
-            <div class="sensor-row">
-                <span class="val" id="t_room">...</span><span class="unit">°C</span>
-            </div>
-            <div class="sensor-row">
-                <span class="val" id="h_room">...</span><span class="unit">%</span>
-            </div>
-            <div class="bat-container">
-                <span>RSSI: <span id="rssi_room">...</span></span>
-                <div class="bat-body"><div id="bat_level_room" class="bat-level"></div></div>
-            </div>
-        </div>
+        client.on('connect', () => {
+            document.getElementById('st').innerText = "Статус: Онлайн";
+            document.getElementById('st').className = "status-on";
+            client.subscribe('7091003_Checher_ESP32/all_data');
+        });
 
-        <div class="card">
-            <span class="section-title">КУХНЯ</span>
-            <div class="sensor-row">
-                <span class="val" id="t_kit">...</span><span class="unit">°C</span>
-            </div>
-            <div class="sensor-row">
-                <span class="val" id="h_kit">...</span><span class="unit">%</span>
-            </div>
-            <div class="bat-container">
-                <span>RSSI: <span id="rssi_kit">...</span></span>
-                <div class="bat-body"><div id="bat_level_kit" class="bat-level"></div></div>
-            </div>
-        </div>
+        client.on('message', (topic, msg) => {
+            try {
+                const d = JSON.parse(msg.toString());
+                document.getElementById('date').innerText = d.date || "...";
+                document.getElementById('time').innerText = d.time || "...";
+                document.getElementById('pres').innerText = d.korydor?.p || "...";
+                document.getElementById('t_kor').innerText = d.korydor?.t || "...";
+                document.getElementById('h_kor').innerText = d.korydor?.h || "...";
 
-        <div class="card">
-            <span class="section-title">ВАННА</span>
-            <div class="sensor-row">
-                <span class="val" id="t_bath">...</span><span class="unit">°C</span>
-            </div>
-            <div class="sensor-row">
-                <span class="val" id="h_bath">...</span><span class="unit">%</span>
-            </div>
-            <div class="bat-container">
-                <span>RSSI: <span id="rssi_bath">...</span></span>
-                <div class="bat-body"><div id="bat_level_bath" class="bat-level"></div></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card" style="width: 60%; margin: 10px auto;">
-        <span class="section-title">КОРИДОР</span>
-        <div><span class="val" id="t_kor">...</span><span class="unit">°C</span></div>
-        <div><span class="val" id="h_kor">...</span><span class="unit">%</span></div>
-    </div>
-
-    <div id="mqtt-status" class="status-offline">Статус: Підключення...</div>
-</main>
-
-<script>
-    // Генеруємо випадковий ID, щоб не було конфліктів підключення
-    const clientId = 'Web_Meteo_' + Math.random().toString(16).substr(2, 8);
-    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { clientId: clientId });
-    const topic = '7091003_Checher_ESP32/all_data';
-
-    const statusEl = document.getElementById('mqtt-status');
-
-    client.on('connect', () => {
-        console.log('MQTT Connected');
-        statusEl.innerText = "Статус: Онлайн";
-        statusEl.className = "status-online";
-        client.subscribe(topic);
-    });
-
-    client.on('close', () => {
-        statusEl.innerText = "Статус: Офлайн";
-        statusEl.className = "status-offline";
-    });
-
-    client.on('message', (t, message) => {
-        try {
-            const data = JSON.parse(message.toString());
-            
-            // Загальні дані
-            document.getElementById('date').innerText = data.date || "...";
-            document.getElementById('time').innerText = data.time || "...";
-            document.getElementById('pres').innerText = data.korydor?.p || "...";
-
-            // Коридор
-            document.getElementById('t_kor').innerText = data.korydor?.t || "...";
-            document.getElementById('h_kor').innerText = data.korydor?.h || "...";
-
-            // Функція для оновлення блоку датчика
-            const updateZone = (htmlId, zoneData) => {
-                const tEl = document.getElementById('t_' + htmlId);
-                const hEl = document.getElementById('h_' + htmlId);
-                const rEl = document.getElementById('rssi_' + htmlId);
-                const bEl = document.getElementById('bat_level_' + htmlId);
-
-                if (zoneData && zoneData.t !== "No Data") {
-                    tEl.innerText = (zoneData.t > 0 ? "+" : "") + zoneData.t;
-                    hEl.innerText = zoneData.h;
-                    rEl.innerText = zoneData.rssi;
-                    bEl.style.width = zoneData.b + "%";
-                    bEl.style.backgroundColor = zoneData.b < 20 ? "red" : "#08DD08";
-                } else {
-                    tEl.innerText = "...";
-                    hEl.innerText = "...";
+                const map = { ext: d.vulytsia, room: d.room, kit: d.kitchen, bath: d.bath };
+                for (const key in map) {
+                    const z = map[key];
+                    const tEl = document.getElementById('t_' + key);
+                    if (z && z.t !== "No Data") {
+                        tEl.innerText = (z.t > 0 ? "+" : "") + z.t;
+                        document.getElementById('h_' + key).innerText = z.h;
+                        document.getElementById('b_' + key).style.width = z.b + "%";
+                    } else {
+                        tEl.innerText = "...";
+                    }
                 }
-            };
-
-            // Мапінг JSON -> HTML
-            updateZone('ext', data.vulytsia);
-            updateZone('room', data.room);
-            updateZone('kit', data.kitchen);
-            updateZone('bath', data.bath);
-
-        } catch (e) {
-            console.error("Помилка JSON:", e);
-        }
-    });
-</script>
-
+            } catch (e) { console.error(e); }
+        });
+    </script>
 </body>
 </html>
