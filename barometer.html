@@ -13,8 +13,8 @@
         .unit { font-size: 0.7em; color: #555; }
         .status-on { color: #2e7d32; font-weight: bold; }
         .status-off { color: #c62828; font-weight: bold; }
-        .bat-bar { width: 30px; height: 12px; border: 1px solid #333; display: inline-block; background: #eee; }
-        .bat-f { height: 100%; background: #4caf50; }
+        .bat-bar { width: 30px; height: 12px; border: 1px solid #333; display: inline-block; background: #eee; vertical-align: middle; }
+        .bat-f { height: 100%; background: #4caf50; width: 0%; transition: width 0.5s; }
     </style>
 </head>
 <body>
@@ -33,9 +33,9 @@
             <div class="card"><b>ВАННА</b><br><span id="t_bath" class="val">...</span><span class="unit">°C</span><br><span id="h_bath" class="val">...</span><span class="unit">%</span><br><div class="bat-bar"><div id="b_bath" class="bat-f"></div></div></div>
         </div>
 
-        <div class="card" style="width: 50%; margin: 10px auto;"><b>КОРИДОР</b><br><span id="t_kor" class="val">...</span><span class="unit">°C</span><br><span id="h_kor" class="val">...</span><span class="unit">%</span></div>
+        <div class="card" style="width: 60%; margin: 10px auto;"><b>КОРИДОР</b><br><span id="t_kor" class="val">...</span><span class="unit">°C</span><br><span id="h_kor" class="val">...</span><span class="unit">%</span></div>
         
-        <div id="st" class="status-off" style="text-align: center; font-size: 0.8em;">Статус: Офлайн</div>
+        <div id="st" class="status-off" style="text-align: center; font-size: 0.8em;">Статус: Підключення...</div>
     </div>
 
     <script>
@@ -44,33 +44,63 @@
         });
 
         client.on('connect', () => {
+            console.log("MQTT Connected");
             document.getElementById('st').innerText = "Статус: Онлайн";
             document.getElementById('st').className = "status-on";
             client.subscribe('7091003_Checher_ESP32/all_data');
         });
 
         client.on('message', (topic, msg) => {
+            console.log("Data received:", msg.toString());
             try {
                 const d = JSON.parse(msg.toString());
+                
+                // Основні дані
                 document.getElementById('date').innerText = d.date || "...";
                 document.getElementById('time').innerText = d.time || "...";
-                document.getElementById('pres').innerText = d.korydor?.p || "...";
-                document.getElementById('t_kor').innerText = d.korydor?.t || "...";
-                document.getElementById('h_kor').innerText = d.korydor?.h || "...";
 
-                const map = { ext: d.vulytsia, room: d.room, kit: d.kitchen, bath: d.bath };
-                for (const key in map) {
-                    const z = map[key];
-                    const tEl = document.getElementById('t_' + key);
-                    if (z && z.t !== "No Data") {
-                        tEl.innerText = (z.t > 0 ? "+" : "") + z.t;
-                        document.getElementById('h_' + key).innerText = z.h;
-                        document.getElementById('b_' + key).style.width = z.b + "%";
+                // Коридор (BME280)
+                if (d.korydor) {
+                    document.getElementById('pres').innerText = d.korydor.p || "...";
+                    document.getElementById('t_kor').innerText = d.korydor.t || "...";
+                    document.getElementById('h_kor').innerText = d.korydor.h || "...";
+                }
+
+                // Карта відповідності (Key в JSON : ID в HTML)
+                const map = { 
+                    'vulytsia': 'ext', 
+                    'room': 'room', 
+                    'kitchen': 'kit', 
+                    'bath': 'bath' 
+                };
+
+                for (const jsonKey in map) {
+                    const htmlSuffix = map[jsonKey];
+                    const data = d[jsonKey];
+                    
+                    if (data && data.t !== "No Data") {
+                        // Температура
+                        const tVal = parseFloat(data.t);
+                        document.getElementById('t_' + htmlSuffix).innerText = (tVal > 0 ? "+" : "") + data.t;
+                        // Вологість
+                        document.getElementById('h_' + htmlSuffix).innerText = data.h;
+                        // Батарея
+                        const bEl = document.getElementById('b_' + htmlSuffix);
+                        if (bEl) bEl.style.width = data.b + "%";
                     } else {
-                        tEl.innerText = "...";
+                        document.getElementById('t_' + htmlSuffix).innerText = "...";
+                        document.getElementById('h_' + htmlSuffix).innerText = "...";
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error("JSON Parse Error:", e); 
+            }
+        });
+
+        client.on('error', (err) => {
+            console.error("MQTT Error:", err);
+            document.getElementById('st').innerText = "Статус: Помилка MQTT";
+            document.getElementById('st').className = "status-off";
         });
     </script>
 </body>
