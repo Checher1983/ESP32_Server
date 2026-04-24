@@ -2,64 +2,89 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Checher Meteo</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метеостанція</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #fff; text-align: center; }
-        .container { max-width: 500px; margin: 20px auto; padding: 20px; }
-        .card { background: #1e1e1e; padding: 20px; margin: 10px; border-radius: 15px; border-bottom: 4px solid #444; }
-        .card.on { border-bottom-color: #4caf50; }
-        .temp { font-size: 2.5em; font-weight: bold; color: #ff5252; }
-        .label { font-size: 0.9em; color: #aaa; text-transform: uppercase; }
-        #status { font-size: 0.8em; color: #666; margin-top: 20px; }
+        /* Ваш дизайн без змін */
+        * { user-select: none; box-sizing: border-box; }
+        body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; }
+        main { text-align: center; padding: 10px; width: 100%; max-width: 420px; }
+        .card { background-color: #B2F2BB; padding: 10px; border-radius: 20px; margin-bottom: 8px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .header-value { color: red; font-weight: bold; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .section-title { color: #21B1FF; font-weight: bold; text-decoration: underline; font-size: 0.9em; margin-bottom: 5px; display: block; }
+        .sensor-value { font-weight: bold; font-size: 1.2em; }
+        .unit { font-size: 0.8em; font-weight: bold; }
+        .battery-body { width: 25px; height: 12px; border: 1px solid black; position: relative; background: white; }
+        .battery-level { height: 100%; width: 0%; }
+        .status-online { color: #08DD08; font-weight: bold; }
+        .status-offline { color: #FF0000; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2 id="time">00:00:00</h2>
-        
-        <div class="card on">
-            <div class="label">Коридор</div>
-            <div id="t_kor" class="temp">--</div>
-            <div id="h_kor">-- %</div>
+    <main>
+        <h1>МЕТЕОСТАНЦІЯ</h1>
+        <div class="card">
+            <div>Дата: <span id="date" class="header-value">...</span> | Час: <span id="time" class="header-value">...</span></div>
+            <div style="margin-top:5px">Тиск: <span id="pres" style="color:red; font-weight:bold;">...</span> <span class="unit">мм.рт.ст.</span></div>
         </div>
 
-        <div class="card" id="c_ext"><div class="label">Вулиця</div><div id="t_ext" class="temp">--</div><div id="h_ext">--</div></div>
-        <div class="card" id="c_room"><div class="label">Кімната</div><div id="t_room" class="temp">--</div><div id="h_room">--</div></div>
-        <div class="card" id="c_kit"><div class="label">Кухня</div><div id="t_kit" class="temp">--</div><div id="h_kit">--</div></div>
-        <div class="card" id="c_bath"><div class="label">Ванна</div><div id="t_bath" class="temp">--</div><div id="h_bath">--</div></div>
+        <div class="grid-container">
+            <script>
+                const zones = [{id: 'vulytsia', name: 'ВУЛИЦЯ'}, {id: 'room', name: 'КІМНАТА'}, {id: 'kitchen', name: 'КУХНЯ'}, {id: 'bath', name: 'ВАННА'}];
+                zones.forEach(z => {
+                    document.write(`
+                        <div class="card">
+                            <span class="section-title">${z.name}</span>
+                            <div><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
+                            <div><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7em; margin-top:5px;">
+                                <span>RSSI: <span id="rssi_${z.id}">...</span></span>
+                                <div class="battery-body"><div id="bat_${z.id}" class="battery-level"></div></div>
+                            </div>
+                        </div>
+                    `);
+                });
+            </script>
+        </div>
+
+        <div class="card" style="width: 50%; margin: 8px auto;">
+            <span class="section-title">КОРИДОР</span>
+            <div><span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span></div>
+            <div><span id="h_kor" class="sensor-value">...</span><span class="unit">%</span></div>
+        </div>
+        <div id="status" class="status-offline">Статус: Офлайн</div>
+    </main>
+
+    <script>
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
         
-        <div id="status">Очікування MQTT...</div>
-    </div>
+        client.on('connect', () => client.subscribe('7091003_Checher_ESP32/all_data'));
 
-<script>
-    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-    client.on('connect', () => {
-        document.getElementById('status').innerText = "MQTT: Підключено";
-        client.subscribe("7091003_Checher_ESP32/all_data");
-    });
+        client.on('message', (topic, msg) => {
+            const data = JSON.parse(msg.toString());
+            document.getElementById('status').innerText = "Статус: Онлайн";
+            document.getElementById('status').className = "status-online";
+            
+            document.getElementById('date').innerText = data.date;
+            document.getElementById('time').innerText = data.time;
+            document.getElementById('pres').innerText = data.korydor.p;
+            document.getElementById('t_kor').innerText = data.korydor.t;
+            document.getElementById('h_kor').innerText = data.korydor.h;
 
-    client.on('message', (t, msg) => {
-        const d = JSON.parse(msg.toString());
-        document.getElementById('time').innerText = d.time;
-        document.getElementById('t_kor').innerText = d.korydor?.t + "°C";
-        document.getElementById('h_kor').innerText = d.korydor?.h + " %";
-
-        const map = { vulytsia:'ext', room:'room', kitchen:'kit', bath:'bath' };
-        Object.keys(map).forEach(key => {
-            const id = map[key];
-            const v = d[key];
-            const el = document.getElementById('c_'+id);
-            if(v) {
-                document.getElementById('t_'+id).innerText = v.t + "°C";
-                document.getElementById('h_'+id).innerText = v.h + " %";
-                el.classList.add('on');
-            } else {
-                document.getElementById('t_'+id).innerText = "--";
-                el.classList.remove('on');
-            }
+            ['vulytsia', 'room', 'kitchen', 'bath'].forEach(id => {
+                const z = data[id];
+                if(z.t !== "No Data") {
+                    document.getElementById('t_'+id).innerText = (z.t > 0 ? "+" : "") + z.t;
+                    document.getElementById('h_'+id).innerText = z.h;
+                    document.getElementById('rssi_'+id).innerText = z.rssi;
+                    const b = document.getElementById('bat_'+id);
+                    b.style.width = z.b + "%";
+                    b.style.backgroundColor = z.b > 20 ? "#08DD08" : "red";
+                }
+            });
         });
-    });
-</script>
+    </script>
 </body>
 </html>
