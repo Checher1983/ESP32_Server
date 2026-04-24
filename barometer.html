@@ -7,48 +7,54 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
-        body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; overflow-y: auto; }
-        main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
-        h1 { color: #333; font-size: 1.6em; margin: 0; padding-bottom: 5px; text-transform: uppercase; }
+        body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; }
+        main { text-align: center; padding: 10px; width: 100%; max-width: 450px; }
         
-        /* Твій дизайн карток */
-        .card { background-color: #B2F2BB; padding: 10px; border-radius: 20px; margin-bottom: 8px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h1 { color: #333; font-size: 2.2em; margin: 0 0 10px 0; font-weight: bold; }
         
-        .header-label { font-size: 1.1em; color: black; font-weight: bold; }
-        .header-value { color: #d32f2f; font-weight: bold; }
+        .card { background-color: #B2F2BB; padding: 10px; border-radius: 25px; margin-bottom: 10px; border: 1px solid #99d9a4; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-        
-        .section-title { color: #21B1FF; font-weight: bold; text-decoration: underline; text-transform: uppercase; font-size: 1em; margin-bottom: 6px; display: block; }
-        
-        .sensor-line { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 4px 0; font-size: 1.4em; }
-        .val { font-weight: bold; color: #d32f2f; } /* Червоний колір для значень як на скріншоті */
-        .unit { font-size: 0.7em; color: black; font-weight: bold; }
-        
-        .icon-temp { width: 12px; height: auto; }
-        .icon-drop { width: 22px; height: auto; }
-        
-        /* Батарея */
-        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(0,0,0,0.1); }
-        .battery-body { width: 28px; height: 14px; border: 1.5px solid black; border-radius: 2px; position: relative; background: white; overflow: hidden; display: inline-block; vertical-align: middle; }
-        .battery-level { height: 100%; width: 0%; transition: width 0.5s; background-color: #4caf50; }
-        .battery-tip { width: 2px; height: 6px; background: black; border-radius: 0 1px 1px 0; display: inline-block; vertical-align: middle; margin-left: -1px; }
+        /* Заголовок з датою/тиском */
+        .header-info { font-size: 1.3em; color: black; font-weight: bold; line-height: 1.4; }
+        .header-red { color: #FF0000; font-weight: bold; }
 
-        .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 12px; border-radius: 12px; border: 2px solid black; font-weight: bold; width: 100%; display: inline-block; margin-top: 10px; font-size: 1.1em; box-shadow: 0 3px 0 black; }
-        .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 black; }
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        
+        .section-title { color: #21B1FF; font-weight: bold; text-decoration: underline; text-transform: uppercase; font-size: 1.1em; margin-bottom: 8px; display: block; }
+        
+        .sensor-line { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 5px 0; }
+        .sensor-value { font-weight: bold; font-size: 1.8em; } /* Великі цифри */
+        .unit { font-size: 0.6em; color: black; font-weight: bold; margin-left: 2px; }
+        
+        .icon-temp { width: 14px; height: auto; }
+        .icon-drop { width: 24px; height: auto; }
+        
+        /* Футер картки: RSSI та Батарея */
+        .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 5px; border-top: 1px solid rgba(0,0,0,0.1); }
+        .rssi-text { font-size: 0.8em; font-weight: bold; color: #444; }
+        
+        .battery-section { display: flex; align-items: center; gap: 4px; }
+        .battery-body { width: 32px; height: 16px; border: 2px solid black; border-radius: 3px; position: relative; background: white; overflow: hidden; }
+        .battery-level { height: 100%; width: 0%; transition: width 0.5s; }
+        .battery-tip { width: 3px; height: 8px; background: black; border-radius: 0 2px 2px 0; margin-left: -1px; }
+        .battery-text { font-size: 0.85em; font-weight: bold; min-width: 35px; text-align: right; }
 
-        .status-online { color: #2e7d32; font-weight: bold; }
-        .status-offline { color: #c62828; font-weight: bold; }
+        .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 15px; border-radius: 15px; border: 3px solid black; font-weight: bold; width: 100%; max-width: 320px; display: inline-block; margin-top: 15px; font-size: 1.3em; box-shadow: 0 4px 0 black; }
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 black; }
+
+        .status-text { font-size: 1.1em; margin-top: 15px; font-weight: bold; }
+        .status-online { color: #00C851; }
+        .status-offline { color: #ff4444; }
     </style>
 </head>
 <body>
     <main>
-        <h1>МЕТЕО-ESP32</h1>
+        <h1>МЕТЕОСТАНЦІЯ</h1>
         
         <div class="card">
-            <div class="header-label">Дата: <span id="date" class="header-value">...</span> | Час: <span id="time" class="header-value">...</span></div>
-            <div style="border-top: 1px dotted gray; margin-top: 6px; padding-top: 6px;">
-                Тиск: <span id="pres" class="val">...</span> <span class="unit">мм.рт.ст.</span>
+            <div class="header-info">
+                Дата: <span id="date" class="header-red">...</span> | Час: <span id="time" class="header-red">...</span><br>
+                Тиск: <span id="pres" class="header-red">...</span> <span style="font-size: 0.8em; color: black;">мм.рт.ст.</span>
             </div>
         </div>
 
@@ -66,17 +72,20 @@
                             <span class="section-title">${z.name}</span>
                             <div class="sensor-line">
                                 <img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp">
-                                <span id="t_${z.id}" class="val">...</span><span class="unit">°C</span>
+                                <span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span>
                             </div>
                             <div class="sensor-line">
                                 <img src="img/Drop.png" class="icon-drop">
-                                <span id="h_${z.id}" class="val">...</span><span class="unit">%</span>
+                                <span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span>
                             </div>
                             <div class="card-footer">
-                                <span style="font-size: 0.65em; font-weight: bold;">RSSI: <span id="rssi_${z.id}">...</span></span>
-                                <div>
-                                    <div class="battery-body"><div id="b_${z.id}" class="battery-level"></div></div>
-                                    <div class="battery-tip"></div>
+                                <span class="rssi-text">RSSI: <span id="rssi_${z.id}">...</span></span>
+                                <div class="battery-section">
+                                    <div style="display: flex; align-items: center;">
+                                        <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
+                                        <div class="battery-tip"></div>
+                                    </div>
+                                    <span id="bat_text_${z.id}" class="battery-text">...%</span>
                                 </div>
                             </div>
                         </div>
@@ -85,104 +94,108 @@
             </script>
         </div>
 
-        <div class="card" style="width: 60%; margin: 0 auto;">
+        <div class="card" style="max-width: 220px; margin: 0 auto;">
             <span class="section-title">КОРИДОР</span>
             <div class="sensor-line">
                 <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
-                <span id="t_kor" class="val">...</span><span class="unit">°C</span>
+                <span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span>
             </div>
             <div class="sensor-line">
                 <img src="img/Drop.png" class="icon-drop">
-                <span id="h_kor" class="val">...</span><span class="unit">%</span>
+                <span id="h_kor" class="sensor-value">...</span><span class="unit">%</span>
             </div>
         </div>
 
         <a href="logs.html" class="btn">Журнал та графіки</a>
-        <div id="st" class="status-offline" style="margin-top: 10px; font-size: 0.9em;">Статус: Офлайн</div>
+        <div id="status-text" class="status-text status-offline">Статус: Очікування...</div>
     </main>
 
     <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-            clientId: 'MeteoWeb_' + Math.random().toString(16).substring(2, 10)
-        });
-
-        // Функція для зміни кольору значень залежно від температури (якщо хочеш динаміку)
-        // Якщо хочеш завжди червоний як на фото - просто лиши в CSS .val { color: #d32f2f; }
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        
         function getTempColor(t) {
-            if (t >= 30) return "#FF0000"; 
-            if (t >= 24) return "#FF6A00"; 
-            if (t >= 18) return "#007F0E"; 
-            if (t >= 0) return "#21B1FF"; 
-            return "#0026FF";
+            if (t >= 30) return "#FF0000"; // Червоний
+            if (t >= 24) return "#FF6A00"; // Помаранчевий
+            if (t >= 18) return "#007F0E"; // Зелений
+            if (t >= 0) return "#21B1FF";  // Блакитний
+            return "#0026FF";              // Синій
+        }
+
+        function updateValue(id, val, isTemp, iconId) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            if(val === null || val === undefined || val === "No Data") {
+                el.innerText = "...";
+                el.style.color = "black";
+                return;
+            }
+            let v = parseFloat(val);
+            if(isTemp) {
+                el.innerText = (v > 0 ? "+" : "") + v.toFixed(1);
+                el.style.color = getTempColor(v);
+                if(iconId) document.getElementById(iconId).src = v < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+            } else {
+                el.innerText = Math.round(v);
+                el.style.color = "#007F0E"; // Темно-зелений для вологості
+            }
+        }
+
+        function updateBat(lvlId, txtId, val) {
+            const bar = document.getElementById(lvlId);
+            const txt = document.getElementById(txtId);
+            if(!bar || !txt) return;
+            let b = parseInt(val);
+            if(isNaN(b)) {
+                txt.innerText = "...%";
+                bar.style.width = "0%";
+                return;
+            }
+            txt.innerText = b + "%";
+            bar.style.width = b + "%";
+            bar.style.backgroundColor = b > 70 ? "#08DD08" : (b > 25 ? "#FFD700" : "#FF0000");
         }
 
         client.on('connect', () => {
-            document.getElementById('st').innerText = "Статус: Онлайн";
-            document.getElementById('st').className = "status-online";
+            document.getElementById('status-text').innerText = "Статус: Онлайн";
+            document.getElementById('status-text').className = "status-text status-online";
             client.subscribe('7091003_Checher_ESP32/all_data');
         });
 
-        client.on('message', (topic, msg) => {
+        client.on('message', (topic, message) => {
             try {
-                const d = JSON.parse(msg.toString());
+                const data = JSON.parse(message.toString());
                 
-                // Дата та час
-                document.getElementById('date').innerText = d.date || "...";
-                document.getElementById('time').innerText = d.time || "...";
+                document.getElementById('date').innerText = data.date || "...";
+                document.getElementById('time').innerText = data.time || "...";
+                document.getElementById('pres').innerText = data.korydor?.p || "...";
 
-                // Коридор (BME280)
-                if (d.korydor) {
-                    document.getElementById('pres').innerText = d.korydor.p || "...";
-                    document.getElementById('t_kor').innerText = (d.korydor.t > 0 ? "+" : "") + d.korydor.t;
-                    document.getElementById('h_kor').innerText = d.korydor.h;
-                    // Зміна іконки для коридору
-                    document.getElementById('t_kor_icon').src = d.korydor.t < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
-                }
+                // Коридор
+                updateValue('t_kor', data.korydor?.t, true, 't_kor_icon');
+                updateValue('h_kor', data.korydor?.h, false);
 
-                // Мапінг JSON -> HTML
-                const map = { 
-                    'vulytsia': 'ext', 
-                    'room': 'room', 
-                    'kitchen': 'kit', 
-                    'bath': 'bath' 
+                // Зони
+                const zMap = {
+                    ext: data.vulytsia,
+                    room: data.room,
+                    kit: data.kitchen,
+                    bath: data.bath
                 };
 
-                for (const jsonKey in map) {
-                    const id = map[jsonKey];
-                    const zone = d[jsonKey];
-                    
-                    if (zone && zone.t !== "No Data" && zone.t !== null) {
-                        const tVal = parseFloat(zone.t);
-                        // Оновлення тексту
-                        document.getElementById('t_' + id).innerText = (tVal > 0 ? "+" : "") + zone.t;
-                        document.getElementById('h_' + id).innerText = zone.h;
-                        
-                        // Зміна іконки температури
-                        const icon = document.getElementById('t_' + id + '_icon');
-                        if (icon) icon.src = tVal < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
-                        
-                        // RSSI
-                        const rssiEl = document.getElementById('rssi_' + id);
-                        if (rssiEl) rssiEl.innerText = zone.rssi || "---";
-
-                        // Батарея (колір змінюється від рівня)
-                        const bBar = document.getElementById('b_' + id);
-                        if (bBar) {
-                            const bVal = parseInt(zone.b);
-                            bBar.style.width = bVal + "%";
-                            bBar.style.backgroundColor = bVal > 70 ? "#08DD08" : (bVal > 25 ? "#FFD700" : "#FF0000");
-                        }
-                    } else {
-                        document.getElementById('t_' + id).innerText = "...";
-                        document.getElementById('h_' + id).innerText = "...";
+                Object.keys(zMap).forEach(id => {
+                    const zData = zMap[id];
+                    updateValue('t_'+id, zData?.t, true, 't_'+id+'_icon');
+                    updateValue('h_'+id, zData?.h, false);
+                    updateBat('bat_level_'+id, 'bat_text_'+id, zData?.b);
+                    if(document.getElementById('rssi_'+id)) {
+                        document.getElementById('rssi_'+id).innerText = zData?.rssi || "...";
                     }
-                }
-            } catch (e) { console.error("Data Error:", e); }
+                });
+            } catch(e) { console.error("MQTT Error:", e); }
         });
 
         client.on('offline', () => {
-            document.getElementById('st').innerText = "Статус: Офлайн";
-            document.getElementById('st').className = "status-offline";
+            document.getElementById('status-text').innerText = "Статус: Офлайн";
+            document.getElementById('status-text').className = "status-text status-offline";
         });
     </script>
 </body>
