@@ -1,90 +1,45 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Метеостанція</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
-    <style>
-        /* Ваш дизайн без змін */
-        * { user-select: none; box-sizing: border-box; }
-        body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; }
-        main { text-align: center; padding: 10px; width: 100%; max-width: 420px; }
-        .card { background-color: #B2F2BB; padding: 10px; border-radius: 20px; margin-bottom: 8px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .header-value { color: red; font-weight: bold; }
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .section-title { color: #21B1FF; font-weight: bold; text-decoration: underline; font-size: 0.9em; margin-bottom: 5px; display: block; }
-        .sensor-value { font-weight: bold; font-size: 1.2em; }
-        .unit { font-size: 0.8em; font-weight: bold; }
-        .battery-body { width: 25px; height: 12px; border: 1px solid black; position: relative; background: white; }
-        .battery-level { height: 100%; width: 0%; }
-        .status-online { color: #08DD08; font-weight: bold; }
-        .status-offline { color: #FF0000; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <main>
-        <h1>МЕТЕОСТАНЦІЯ</h1>
-        <div class="card">
-            <div>Дата: <span id="date" class="header-value">...</span> | Час: <span id="time" class="header-value">...</span></div>
-            <div style="margin-top:5px">Тиск: <span id="pres" style="color:red; font-weight:bold;">...</span> <span class="unit">мм.рт.ст.</span></div>
-        </div>
+// ... в скрипті barometer.html змініть підключення:
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+    clientId: 'Web_Barometer_' + Math.random().toString(16).substr(2, 8)
+});
 
-        <div class="grid-container">
-            <script>
-                const zones = [{id: 'vulytsia', name: 'ВУЛИЦЯ'}, {id: 'room', name: 'КІМНАТА'}, {id: 'kitchen', name: 'КУХНЯ'}, {id: 'bath', name: 'ВАННА'}];
-                zones.forEach(z => {
-                    document.write(`
-                        <div class="card">
-                            <span class="section-title">${z.name}</span>
-                            <div><span id="t_${z.id}" class="sensor-value">...</span><span class="unit">°C</span></div>
-                            <div><span id="h_${z.id}" class="sensor-value">...</span><span class="unit">%</span></div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.7em; margin-top:5px;">
-                                <span>RSSI: <span id="rssi_${z.id}">...</span></span>
-                                <div class="battery-body"><div id="bat_${z.id}" class="battery-level"></div></div>
-                            </div>
-                        </div>
-                    `);
-                });
-            </script>
-        </div>
+client.on('message', (topic, message) => {
+    try {
+        const data = JSON.parse(message.toString());
+        // Оновлення статусу
+        statusEl.innerText = "Статус: Онлайн";
+        statusEl.className = "status-online";
 
-        <div class="card" style="width: 50%; margin: 8px auto;">
-            <span class="section-title">КОРИДОР</span>
-            <div><span id="t_kor" class="sensor-value">...</span><span class="unit">°C</span></div>
-            <div><span id="h_kor" class="sensor-value">...</span><span class="unit">%</span></div>
-        </div>
-        <div id="status" class="status-offline">Статус: Офлайн</div>
-    </main>
+        // Дані коридору
+        document.getElementById('date').innerText = data.date;
+        document.getElementById('time').innerText = data.time;
+        document.getElementById('pres').innerText = data.korydor.p;
+        updateValue('t_kor', data.korydor.t, true, 't_kor_icon');
+        updateValue('h_kor', data.korydor.h, false);
 
-    <script>
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        
-        client.on('connect', () => client.subscribe('7091003_Checher_ESP32/all_data'));
+        // Мапінг зон
+        const zMap = {
+            ext: data.vulytsia,
+            room: data.room,
+            kit: data.kitchen,
+            bath: data.bath
+        };
 
-        client.on('message', (topic, msg) => {
-            const data = JSON.parse(msg.toString());
-            document.getElementById('status').innerText = "Статус: Онлайн";
-            document.getElementById('status').className = "status-online";
-            
-            document.getElementById('date').innerText = data.date;
-            document.getElementById('time').innerText = data.time;
-            document.getElementById('pres').innerText = data.korydor.p;
-            document.getElementById('t_kor').innerText = data.korydor.t;
-            document.getElementById('h_kor').innerText = data.korydor.h;
-
-            ['vulytsia', 'room', 'kitchen', 'bath'].forEach(id => {
-                const z = data[id];
-                if(z.t !== "No Data") {
-                    document.getElementById('t_'+id).innerText = (z.t > 0 ? "+" : "") + z.t;
-                    document.getElementById('h_'+id).innerText = z.h;
-                    document.getElementById('rssi_'+id).innerText = z.rssi;
-                    const b = document.getElementById('bat_'+id);
-                    b.style.width = z.b + "%";
-                    b.style.backgroundColor = z.b > 20 ? "#08DD08" : "red";
+        Object.keys(zMap).forEach(id => {
+            const zoneData = zMap[id];
+            if (zoneData && zoneData.t !== "No Data") {
+                updateValue('t_' + id, zoneData.t, true, 't_' + id + '_icon');
+                updateValue('h_' + id, zoneData.h, false);
+                updateBat('bat_level_' + id, 'bat_text_' + id, zoneData.b);
+                if (document.getElementById('rssi_' + id)) {
+                    document.getElementById('rssi_' + id).innerText = zoneData.rssi;
                 }
-            });
+            } else {
+                document.getElementById('t_' + id).innerText = "...";
+                document.getElementById('h_' + id).innerText = "...";
+            }
         });
-    </script>
-</body>
-</html>
+    } catch (e) {
+        console.error("MQTT Error:", e);
+    }
+});
