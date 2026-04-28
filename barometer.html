@@ -10,29 +10,50 @@
         body { background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; overflow-y: auto; }
         main { text-align: center; padding: 5px; width: 100%; max-width: 400px; }
         h1 { color: #333; font-size: 1.6em; margin: 0; padding-bottom: 5px; }
+        
+        /* КАРТКА ТА ЗАГАЛЬНІ СТИЛІ */
         .card { background-color: #B2F2BB; padding: 6px 10px; border-radius: 20px; margin-bottom: 5px; border: 1px solid #99d9a4; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .datetime-row { display: flex; justify-content: space-between; font-size: 1.1em; font-weight: bold; padding: 2px 5px; }
-        .header-value { color: red; }
+        
+        /* ЗМІНА РОЗМІРІВ: Чорний текст (Labels) тепер більший, червоний (Values) - менший */
+        .datetime-row { display: flex; justify-content: space-between; font-size: 1.3em; font-weight: bold; color: black; padding: 2px 5px; }
+        .header-value { color: red; font-size: 0.85em; } /* Червоний став меншим */
+        .pressure-row { border-top: 1px dotted gray; margin-top: 4px; padding-top: 4px; font-size: 1.2em; color: black; font-weight: bold; }
+
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 5px; }
-        .section-title { color: #8F44FF; font-weight: bold; text-decoration: none; text-transform: uppercase; font-size: 1em; margin-bottom: 4px; display: block; }
+        .section-title { color: #8F44FF; font-weight: bold; text-decoration: none; text-transform: uppercase; font-size: 1.1em; margin-bottom: 4px; display: block; }
+        
         .sensor-line { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 2px 0; font-size: 1.6em; min-height: 1.2em; }
         .sensor-value { font-weight: bold; }
         .unit { font-size: 0.7em; font-weight: bold; margin-left: 1px; }
+        
         .icon-temp { width: 12px; height: auto; }
         .icon-drop { width: 22px; height: auto; }
+        
         .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 3px; border-top: 1px solid rgba(0,0,0,0.05); }
         .battery-container { display: flex; align-items: center; gap: 1px; }
         .battery-body { width: 28px; height: 14px; border: 1.5px solid black; border-radius: 2px; position: relative; background: white; overflow: hidden; }
         .battery-level { height: 100%; width: 0%; transition: 0.5s; }
         .battery-tip { width: 2px; height: 6px; background: black; border-radius: 0 1px 1px 0; }
         .rssi-text { font-size: 0.75em; color: #444; font-weight: bold; }
+        
         .btn { text-decoration: none; background-color: #21B1FF; color: yellow; padding: 10px; border-radius: 12px; border: 2px solid black; font-weight: bold; width: 300px; display: inline-block; margin-top: 6px; font-size: 1.1em; }
         
         #status-container { font-size: 13px; font-weight: bold; margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
         .status-waiting { color: #888; }
         .status-server-online { color: #08DD08; }
-        .status-server-offline { color: #FF0000; }
-        .status-bt-offline { color: #FF0000; }
+
+        /* КАРТКА СОНЦЯ */
+        .sun-card { position: relative; height: 94px; background: linear-gradient(180deg, #B2F2BB 0%, #E6FFEA 100%); overflow: hidden; border: 1px solid #99d9a4; border-radius: 20px; padding: 5px; }
+        .sun-path { position: absolute; width: 140px; height: 140px; border: 1.2px dashed rgba(143, 68, 255, 0.4); border-radius: 50%; left: 50%; transform: translateX(-50%); top: 20px; }
+        #sun-body { position: absolute; width: 18px; height: 18px; background-color: #ffce54; border-radius: 50%; left: 50%; top: 50%; margin-left: -9px; margin-top: -9px; transition: all 0.8s linear; opacity: 0; z-index: 2; }
+        .sun-label-main { position: absolute; top: 25px; width: 100%; left: 0; color: #8F44FF; font-weight: bold; font-size: 0.85em; }
+        #sun-timer { position: absolute; top: 42px; width: 100%; left: 0; color: black; font-weight: bold; font-size: 0.95em; }
+        
+        /* ЗМІНА РОЗМІРІВ У ФУТЕРІ СОНЦЯ */
+        .sun-footer { position: absolute; bottom: 4px; width: 100%; left: 0; display: flex; justify-content: space-around; font-weight: bold; }
+        .sun-type-label { color: #8F44FF; display: block; margin-bottom: -2px; font-size: 1em; } /* Назва (Схід/Захід) стала більшою */
+        .sun-time-val { color: red; font-size: 0.9em; display: block; } /* Час (червоний) став меншим */
+        .horizon-line { position: absolute; bottom: 25px; width: 80%; left: 10%; border-bottom: 1px solid rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -43,8 +64,8 @@
                 <div>Дата: <span id="date" class="header-value">...</span></div>
                 <div>Час: <span id="time" class="header-value">...</span></div>
             </div>
-            <div style="border-top: 1px dotted gray; margin-top: 4px; padding-top: 4px; font-size: 1em;">
-                Атмосферний тиск: <span id="pres" class="header-value">...</span> <span id="u_pres" class="unit" style="color:red; display:none;">мм.рт.ст.</span>
+            <div class="pressure-row">
+                Тиск: <span id="pres" class="header-value">...</span> <span id="u_pres" class="unit" style="color:red; display:none;">мм.рт.ст.</span>
             </div>
         </div>
 
@@ -64,7 +85,7 @@
                                 <span id="h_${z.id}" class="sensor-value">...</span><span id="u_h_${z.id}" class="unit" style="display:none;">%</span>
                             </div>
                             <div class="card-footer">
-                                <span class="rssi-text">RSSI: <span id="rssi_${z.id}">...</span> <span id="u_rssi_${z.id}" style="display:none;">dBm</span></span>
+                                <span class="rssi-text">RSSI: <span id="rssi_${z.id}">...</span></span>
                                 <div class="battery-container">
                                     <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
                                     <div class="battery-tip"></div>
@@ -77,189 +98,136 @@
             </script>
         </div>
 
-        <div class="card" style="max-width: 180px; margin: 0 auto 5px auto;">
-            <span class="section-title">КОРИДОР</span>
-            <div class="sensor-line">
-                <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
-                <span id="t_kor" class="sensor-value">...</span><span id="u_t_kor" class="unit" style="display:none;">°C</span>
+        <div class="grid-container">
+            <div class="card" style="margin-bottom: 0; height: 94px; display: flex; flex-direction: column; justify-content: center;">
+                <span class="section-title">КОРИДОР</span>
+                <div class="sensor-line">
+                    <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
+                    <span id="t_kor" class="sensor-value">...</span><span id="u_t_kor" class="unit" style="display:none;">°C</span>
+                </div>
+                <div class="sensor-line">
+                    <img src="img/Drop.png" class="icon-drop">
+                    <span id="h_kor" class="sensor-value">...</span><span id="u_h_kor" class="unit" style="display:none;">%</span>
+                </div>
             </div>
-            <div class="sensor-line">
-                <img src="img/Drop.png" class="icon-drop">
-                <span id="h_kor" class="sensor-value">...</span><span id="u_h_kor" class="unit" style="display:none;">%</span>
+
+            <div class="sun-card">
+                <div class="sun-path"></div>
+                <div id="sun-body"></div>
+                <div class="horizon-line"></div>
+                <div class="sun-label-main" id="sun-status-label">До заходу</div>
+                <div id="sun-timer">-- год -- хв</div>
+                <div class="sun-footer">
+                    <div><span class="sun-type-label">СХІД</span><span id="sunrise-t" class="sun-time-val">...</span></div>
+                    <div><span class="sun-type-label">ЗАХІД</span><span id="sunset-t" class="sun-time-val">...</span></div>
+                </div>
             </div>
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: center;">
             <a href="logs.html" class="btn">Журнал та графіки</a>
-            <a href="index.html" class="btn">На головну</a>
         </div>
         
         <div id="status-container">
-            <div id="status-server" class="status-waiting">Статус: Очікування даних...</div>
-            <div id="status-bt" style="display:none;" class="status-bt-offline">ESP32 BT вимкнений</div>
+            <div id="status-server" class="status-waiting">Статус: Очікування сервера...</div>
         </div>
     </main>
 
     <script>
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        let lastServerTime = 0;
+        const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
+
+        function calculateSunTimer(nowStr, sunriseStr, sunsetStr) {
+            if (!nowStr || !sunriseStr || !sunsetStr || sunriseStr.includes('.')) return;
+            const toMin = (s) => { const a = s.split(':'); return parseInt(a[0])*60 + parseInt(a[1]); };
+            const now = toMin(nowStr);
+            const rise = toMin(sunriseStr);
+            const set = toMin(sunsetStr);
+            let diff, label;
+            
+            if (now >= rise && now < set) {
+                label = "До заходу"; diff = set - now;
+            } else {
+                label = "До сходу"; diff = (now < rise) ? (rise - now) : (1440 - now + rise);
+            }
+            const h = Math.floor(diff / 60); const m = diff % 60;
+            document.getElementById('sun-status-label').innerText = label;
+            document.getElementById('sun-timer').innerText = `${h} год ${m} хв`;
+        }
 
         function updateValue(id, value, isTemp, iconId) {
             const el = document.getElementById(id);
             const unit = document.getElementById('u_' + id);
             if (!el) return;
-
-            if (value === "No data" || value === "No Data") {
-                el.innerText = "No data"; el.style.color = "red"; el.style.fontSize = "0.6em";
-                if (unit) unit.style.display = "none";
-                return;
-            }
-
-            if (value === "N/A") {
-                el.innerText = "N/A"; el.style.color = "#888"; el.style.fontSize = "0.8em";
-                if (unit) unit.style.display = "none";
-                return;
-            }
-
-            if (value === "..." || value === undefined || value === null) {
-                el.innerText = "..."; el.style.color = "black"; el.style.fontSize = "1em";
-                if (unit) { unit.style.display = "inline"; unit.style.color = "black"; }
-                return;
-            }
-
+            if (value === "..." || value === undefined) { el.innerText = "..."; if(unit) unit.style.display="none"; return; }
+            
+            if(unit) unit.style.display = "inline";
             const val = parseFloat(value);
-            el.style.fontSize = "1em";
-            if (unit) unit.style.display = "inline";
-
             if (isTemp) {
-                const color = (val >= 33) ? "#FF0000" : (val >= 27) ? "#FF6A00" : (val >= 20) ? "#007F0E" : (val >= 0) ? "#21B1FF" : "#0026FF";
+                const color = (val >= 30) ? "#FF0000" : (val >= 22) ? "#007F0E" : "#21B1FF";
                 el.innerText = (val > 0 ? "+" : "") + val.toFixed(1);
-                el.style.color = color;
-                if (unit) unit.style.color = color;
+                el.style.color = color; if(unit) unit.style.color = color;
                 if (iconId) document.getElementById(iconId).src = val < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
             } else {
                 el.innerText = Math.round(val);
-                el.style.color = "#007F0E";
-                if (unit) unit.style.color = "#007F0E";
+                el.style.color = "#007F0E"; if(unit) unit.style.color = "#007F0E";
             }
         }
 
-        function updateBatteryRssi(id, rssi, b) {
-            const rEl = document.getElementById('rssi_'+id);
-            const uREl = document.getElementById('u_rssi_'+id);
-            if (rssi) { 
-                rEl.innerText = rssi; 
-                if(uREl) uREl.style.display = "inline"; 
-            }
-            
-            const bT = document.getElementById('bat_text_'+id);
-            const bL = document.getElementById('bat_level_'+id);
-            if (b !== undefined) {
-                const val = parseInt(b);
-                bT.innerText = val + "%";
-                bL.style.width = val + "%";
-                bL.style.backgroundColor = val >= 70 ? "#08DD08" : (val >= 20 ? "orange" : "red");
+        function updateBattery(id, val) {
+            const level = document.getElementById('bat_level_' + id);
+            const text = document.getElementById('bat_text_' + id);
+            if (level && text) {
+                level.style.width = val + '%';
+                level.style.backgroundColor = (val < 20) ? 'red' : (val < 50) ? 'orange' : '#08DD08';
+                text.innerText = val + '%';
             }
         }
 
-        function clearBatteryRssi(id, isNoData) {
-            document.getElementById('rssi_'+id).innerText = "...";
-            const uRssi = document.getElementById('u_rssi_'+id);
-            if(uRssi) uRssi.style.display = isNoData ? "none" : "inline";
-            
-            document.getElementById('bat_text_'+id).innerText = "...%";
-            document.getElementById('bat_level_'+id).style.width = "0%";
-            document.getElementById('bat_level_'+id).style.backgroundColor = "white";
-        }
-
-        client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
+        client.on('connect', () => { 
+            client.subscribe('7091003_Checher_ESP32/all_data'); 
+            // ВИПРАВЛЕНО: Нова назва статусу
+            document.getElementById('status-server').innerText = "ESP32 Server онлайн";
+            document.getElementById('status-server').className = "status-server-online";
+        });
 
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                lastServerTime = Date.now();
-
-                // 1. Оновлення статусу Server
-                document.getElementById('status-server').innerText = "Статус: ESP32 Server онлайн";
-                document.getElementById('status-server').className = "status-server-online";
-
                 document.getElementById('date').innerText = data.date || "...";
                 document.getElementById('time').innerText = data.time || "...";
-                document.getElementById('pres').innerText = data.korydor?.p || "...";
-                document.getElementById('u_pres').style.display = "inline";
 
-                // 2. Коридор (пряме підключення до сервера)
-                updateValue('t_kor', data.korydor?.t, true, 't_kor_icon');
-                updateValue('h_kor', data.korydor?.h, false);
-
-                // 3. Аналіз Bluetooth датчиків
-                const zMap = {ext: data.vulytsia, room: data.room, kit: data.kitchen, bath: data.bath};
-                let validCount = 0;
-                let naCount = 0;
-
-                Object.keys(zMap).forEach(id => {
-                    const t = zMap[id]?.t;
-                    if (t === "N/A") naCount++;
-                    else if (t !== "..." && t !== undefined && t !== "No Data") validCount++;
-                });
-
-                const btStatusEl = document.getElementById('status-bt');
-                
-                if (validCount > 0) {
-                    btStatusEl.style.display = "none";
-                    Object.keys(zMap).forEach(id => {
-                        const z = zMap[id];
-                        updateValue('t_'+id, z?.t, true, 't_'+id+'_icon');
-                        updateValue('h_'+id, z?.h, false);
-                        
-                        if (z?.t !== "N/A" && z?.t !== "..." && z?.t !== "No Data") {
-                            updateBatteryRssi(id, z?.rssi, z?.b);
-                        } else if (z?.t === "N/A") {
-                            clearBatteryRssi(id, true); // Ховаємо dBm
-                        } else {
-                            clearBatteryRssi(id, false); // Залишаємо dBm для "..."
-                        }
-                    });
-                } else if (naCount === 4) {
-                    // Всі 4 "N/A" -> шлюз ESP32 BT лежить
-                    btStatusEl.style.display = "block";
-                    Object.keys(zMap).forEach(id => {
-                        updateValue('t_'+id, "No data", true, 't_'+id+'_icon');
-                        updateValue('h_'+id, "No data", false);
-                        clearBatteryRssi(id, true);
-                    });
-                } else {
-                    // Початкове завантаження (Сервер передає "...")
-                    btStatusEl.style.display = "none";
-                    Object.keys(zMap).forEach(id => {
-                        updateValue('t_'+id, "...", true, 't_'+id+'_icon');
-                        updateValue('h_'+id, "...", false);
-                        clearBatteryRssi(id, false);
-                    });
+                if (data.sun) {
+                    const sunBody = document.getElementById('sun-body');
+                    let progress = (data.sun.az - 60) / (300 - 60);
+                    progress = Math.max(0, Math.min(1, progress));
+                    sunBody.style.left = (15 + (progress * 70)) + '%';
+                    sunBody.style.top = (75 - (Math.sin(Math.PI * progress) * 60)) + '%';
+                    sunBody.style.opacity = (data.sun.el > 0) ? "1" : "0";
+                    
+                    document.getElementById('sunrise-t').innerText = data.sun.sr;
+                    document.getElementById('sunset-t').innerText = data.sun.ss;
+                    calculateSunTimer(data.time, data.sun.sr, data.sun.ss);
                 }
 
-            } catch (e) { console.error(e); }
-        });
+                if (data.korydor) {
+                    updateValue('t_kor', data.korydor.t, true, 't_kor_icon');
+                    updateValue('h_kor', data.korydor.h, false);
+                    document.getElementById('pres').innerText = data.korydor.p;
+                    document.getElementById('u_pres').style.display = "inline";
+                }
 
-        // 4. Глобальний таймаут сервера (> 25 сек)
-        setInterval(() => {
-            const now = Date.now();
-            if (lastServerTime !== 0 && (now - lastServerTime > 25000)) {
-                document.getElementById('status-server').innerText = "ESP32 Server вимкнений";
-                document.getElementById('status-server').className = "status-server-offline";
-                document.getElementById('status-bt').style.display = "none"; 
-                
-                ['t_ext','h_ext','t_room','h_room','t_kit','h_kit','t_bath','h_bath','t_kor','h_kor'].forEach(id => {
-                    updateValue(id, "No data", id.startsWith('t'));
+                Object.keys(mapping).forEach(key => {
+                    const htmlId = mapping[key];
+                    if (data[key] && data[key].t !== "...") {
+                        updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
+                        updateValue('h_' + htmlId, data[key].h, false);
+                        updateBattery(htmlId, data[key].b);
+                        document.getElementById('rssi_' + htmlId).innerText = data[key].rssi || "...";
+                    }
                 });
-                ['ext','room','kit','bath'].forEach(id => clearBatteryRssi(id, true));
-                
-                document.getElementById('date').innerText = "...";
-                document.getElementById('time').innerText = "...";
-                document.getElementById('pres').innerText = "...";
-                document.getElementById('u_pres').style.display = "none";
-            }
-        }, 5000);
+            } catch (e) { console.log(e); }
+        });
     </script>
 </body>
 </html>
