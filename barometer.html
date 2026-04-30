@@ -7,363 +7,489 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
-        body { 
-            background-color: #E4EAF6; 
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            height: 100vh; 
-            font-family: sans-serif; 
-            overflow: hidden; 
+        body {
+            background-color: #E4EAF6;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            font-family: sans-serif;
+            overflow: hidden; /* без скролу */
         }
-        main { 
-            width: 100%; 
-            max-width: 480px; 
-            padding: 8px; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100%;
-            gap: 8px; 
+        main {
+            width: 100%;
+            max-width: 480px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+
+            /* авто-fit під екран */
+            transform-origin: top center;
+            will-change: transform;
         }
-        
         .main-title { display: flex; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; }
         .main-title img { height: 32px; width: auto; }
         h1 { color: #333; font-size: 1.5em; margin: 0; text-transform: uppercase; }
 
-        .sun-gradient { 
-            background: linear-gradient(180deg, #B2F2BB 0%, #E6FFEA 100%) !important; 
+        .sun-gradient {
+            background: linear-gradient(180deg, #B2F2BB 0%, #E6FFEA 100%) !important;
             border: 1.5px solid #99d9a4;
         }
-
         .top-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; flex-shrink: 0; }
         .top-item { padding: 6px 2px; border-radius: 14px; text-align: center; }
         .top-label { display: block; font-size: 0.65em; color: #555; font-weight: bold; margin-bottom: 2px; }
         .top-val { font-size: 0.95em; font-weight: bold; color: #007F0E; }
 
-        .cards-area { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-            flex-shrink: 0; 
+        .cards-area {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-shrink: 0;
         }
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-        .card { 
-            padding: 8px 12px; 
-            border-radius: 20px; 
-            position: relative; 
+        .card {
+            padding: 8px 12px;
+            border-radius: 20px;
+            position: relative;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        
-        .section-title { 
-            color: #8F44FF; 
-            font-weight: bold; 
-            font-size: 0.95em; 
-            margin-bottom: 6px; 
-            display: block; 
-            text-align: center; /* Назви кімнат по центру */
+        .section-title {
+            color: #8F44FF;
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 6px;
+            display: block;
+            text-align: center;
         }
-
-        .sensor-body { 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; /* Температура і вологість по центру */
-            gap: 10px; 
+        .sensor-body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
-        .icon-temp { width: 19px; height: auto; } 
-        
-        .sensor-value, .unit { 
-            font-weight: bold; 
-            font-size: 1.6em; 
-            line-height: 1; 
-            font-family: inherit; 
+        .icon-temp { width: 19px; height: auto; }
+        .sensor-value, .unit {
+            font-weight: bold;
+            font-size: 1.6em;
+            line-height: 1;
+            font-family: inherit;
         }
         .unit { margin-left: 2px; }
         .icon-drop { width: 19px; height: auto; }
 
-        .card-footer { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-top: 6px; 
-            padding-top: 5px; 
-            border-top: 1px solid rgba(0,0,0,0.08); 
-            font-size: 0.75em; 
-            font-weight: bold; 
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            padding-top: 5px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            font-size: 0.75em;
+            font-weight: bold;
         }
-        
         .battery-container { display: flex; align-items: center; gap: 4px; }
-        .battery-body { 
-            width: 26px; 
-            height: 12px; 
-            border: 1.5px solid black; 
-            border-radius: 2px; 
-            position: relative; 
-            background: white; 
+        .battery-body {
+            width: 26px;
+            height: 12px;
+            border: 1.5px solid black;
+            border-radius: 2px;
+            position: relative;
+            background: white;
             flex-shrink: 0;
         }
-        .battery-body::after { 
-            content: ''; 
-            position: absolute; 
-            right: -3.5px; 
-            top: 2px; 
-            width: 2px; 
-            height: 5px; 
-            background: black; 
-            border-radius: 0 1px 1px 0; 
+        .battery-body::after {
+            content: '';
+            position: absolute;
+            right: -3.5px;
+            top: 2px;
+            width: 2px;
+            height: 5px;
+            background: black;
+            border-radius: 0 1px 1px 0;
         }
         .battery-level { height: 100%; width: 0%; transition: 0.5s; }
 
         /* SUN CARD */
-        .sun-card { 
-            height: 140px; 
-            position: relative; 
+        .sun-card { height: 140px; position: relative; }
+        .sun-arc {
+            position: absolute;
+            width: 140px;
+            height: 70px;
+            border: 1.5px dashed rgba(255, 180, 0, 0.6);
+            border-radius: 70px 70px 0 0;
+            border-bottom: none;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 35px;
         }
-        .sun-arc { 
-            position: absolute; 
-            width: 140px; 
-            height: 70px; 
-            border: 1.5px dashed rgba(255, 180, 0, 0.6); 
-            border-radius: 70px 70px 0 0; 
-            border-bottom: none; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            top: 35px; 
-        }
-        #sun-body { 
-            position: absolute; 
-            width: 18px; 
-            height: 18px; 
-            background: #FFD54A; 
-            border-radius: 50%; 
-            transform: translate(-50%, -50%); 
-            transition: all 1s ease; 
-            z-index: 2; 
-            opacity: 0; 
+        #sun-body {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: #FFD54A; /* жовтий за замовчуванням */
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 1s ease;
+            z-index: 2;
+            opacity: 0;
             box-shadow: 0 0 10px #FFD54A;
         }
-        .sun-center-info { 
+        .sun-center-info {
             position: absolute;
-            top: 70px; 
+            top: 70px;
             left: 0;
             width: 100%;
-            text-align: center; 
-            z-index: 5; 
+            text-align: center;
+            z-index: 5;
         }
         #sun-status-label { font-size: 0.75em; color: #8F44FF; font-weight: bold; text-transform: uppercase; }
         .sun-timer-val { font-size: 1.1em; font-weight: bold; display: block; margin-top: 2px; }
-        
-        .sun-times { 
+        .sun-times {
             position: absolute;
-            bottom: 8px; 
+            bottom: 8px;
             left: 12px;
             right: 12px;
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 0.85em; 
-            font-weight: bold; 
-            z-index: 3; 
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            font-weight: bold;
+            z-index: 3;
         }
 
-        .bottom-area { 
-            flex-shrink: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+        .bottom-area {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             gap: 8px;
         }
-        
-        /* Кнопки з вашого файлу барометра */
-        .btn { 
-            text-decoration: none; 
-            background-color: #21B1FF; 
-            color: yellow; 
-            padding: 12px 10px; 
-            border-radius: 14px; 
-            border: 2px solid black; 
-            font-weight: bold; 
-            width: 100%; 
-            font-size: 1.15em; 
+        .btn {
+            text-decoration: none;
+            background-color: #21B1FF;
+            color: yellow;
+            padding: 12px 10px;
+            border-radius: 14px;
+            border: 2px solid black;
+            font-weight: bold;
+            width: 100%;
+            font-size: 1.15em;
             text-align: center;
             transition: 0.3s;
         }
-        .btn:hover {
-            background-color: #28a745;
-        }
-        .btn:active {
-            background-color: yellow;
-            color: #21B1FF;
-        }
-
+        .btn:hover { background-color: #28a745; }
+        .btn:active { background-color: yellow; color: #21B1FF; }
         #status-server { font-size: 12px; font-weight: bold; color: #08DD08; margin: 0; }
     </style>
 </head>
 <body>
-    <main>
-        <div class="main-title">
-            <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Cloud.png?raw=true" alt="Cloud">
-            <h1>МЕТЕОСТАНЦІЯ</h1>
-        </div>
+<main>
+    <div class="main-title">
+        <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Cloud.png?raw=true" alt="Cloud">
+        <h1>МЕТЕОСТАНЦІЯ</h1>
+    </div>
 
-        <div class="top-grid">
-            <div class="top-item sun-gradient"><span class="top-label">ДАТА</span><span id="date" class="top-val">...</span></div>
-            <div class="top-item sun-gradient"><span class="top-label">ЧАС</span><span id="time" class="top-val">...</span></div>
-            <div class="top-item sun-gradient"><span class="top-label">ТИСК</span><span id="pres" class="top-val">...</span><span class="unit" style="color:#007F0E; font-size: 0.8em;"> мм</span></div>
-        </div>
+    <div class="top-grid">
+        <div class="top-item sun-gradient"><span class="top-label">ДАТА</span><span id="date" class="top-val">...</span></div>
+        <div class="top-item sun-gradient"><span class="top-label">ЧАС</span><span id="time" class="top-val">...</span></div>
+        <div class="top-item sun-gradient"><span class="top-label">ТИСК</span><span id="pres" class="top-val">...</span><span class="unit" style="color:#007F0E; font-size: 0.8em;"> мм</span></div>
+    </div>
 
-        <div class="cards-area">
-            <div class="grid-container" id="main-grid"></div>
+    <div class="cards-area">
+        <div class="grid-container" id="main-grid"></div>
 
-            <div class="grid-container">
-                <div class="card sun-gradient">
-                    <span class="section-title">КОРИДОР</span>
-                    <div class="sensor-body">
-                        <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <div style="display: flex; align-items: baseline;"><span id="t_kor" class="sensor-value">...</span><span id="t_kor_u" class="unit">°C</span></div>
-                            <div style="display: flex; align-items: center; gap: 8px;"><img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Drop1.png?raw=true" class="icon-drop"><span id="h_kor" class="sensor-value">...</span><span id="h_kor_u" class="unit">%</span></div>
+        <div class="grid-container">
+            <div class="card sun-gradient">
+                <span class="section-title">КОРИДОР</span>
+                <div class="sensor-body">
+                    <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: baseline;">
+                            <span id="t_kor" class="sensor-value">...</span><span id="t_kor_u" class="unit">°C</span>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card sun-card sun-gradient">
-                    <span class="section-title">СОНЦЕ</span>
-                    <div class="sun-arc"></div>
-                    <div id="sun-body"></div>
-                    <div class="sun-center-info">
-                        <span id="sun-status-label">—</span>
-                        <span id="sun-timer" class="sun-timer-val">-- год -- хв</span>
-                    </div>
-                    <div class="sun-times">
-                        <div><span style="color:#8F44FF; display:block; font-size:0.65em;">СХІД</span><span id="sunrise-t">...</span></div>
-                        <div><span style="color:#8F44FF; display:block; font-size:0.65em;">ЗАХІД</span><span id="sunset-t">...</span></div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Drop1.png?raw=true" class="icon-drop">
+                            <span id="h_kor" class="sensor-value">...</span><span id="h_kor_u" class="unit">%</span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <div class="card sun-card sun-gradient">
+                <span class="section-title">СОНЦЕ</span>
+                <div class="sun-arc"></div>
+                <div id="sun-body"></div>
+
+                <div class="sun-center-info">
+                    <span id="sun-status-label">—</span>
+                    <span id="sun-timer" class="sun-timer-val">-- год -- хв</span>
+                </div>
+
+                <div class="sun-times">
+                    <div><span style="color:#8F44FF; display:block; font-size:0.65em;">СХІД</span><span id="sunrise-t">...</span></div>
+                    <div><span style="color:#8F44FF; display:block; font-size:0.65em;">ЗАХІД</span><span id="sunset-t">...</span></div>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <div class="bottom-area">
-            <a href="logs.html" class="btn">Журнал та графіки</a>
-            <a href="#" class="btn">На головну</a>
-            <div id="status-server">● ESP32 Server онлайн</div>
-        </div>
-    </main>
+    <div class="bottom-area">
+        <a href="logs.html" class="btn">Журнал та графіки</a>
+        <a href="#" class="btn">На головну</a>
+        <div id="status-server">● ESP32 Server онлайн</div>
+    </div>
+</main>
 
-    <script>
-        const zones = [
-            {id:'ext', n:'ВУЛИЦЯ'}, {id:'room', n:'КІМНАТА'},
-            {id:'kit', n:'КУХНЯ'}, {id:'bath', n:'ВАННА'}
-        ];
+<script>
+    // ===== AUTO FIT: все влізає у екран без скролу =====
+    function fitToViewport() {
+        const main = document.querySelector('main');
+        if (!main) return;
 
-        const grid = document.getElementById('main-grid');
-        zones.forEach(z => {
-            grid.innerHTML += `
-                <div class="card sun-gradient">
-                    <span class="section-title">${z.n}</span>
-                    <div class="sensor-body">
-                        <img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <div style="display: flex; align-items: baseline;"><span id="t_${z.id}" class="sensor-value">...</span><span id="t_${z.id}_u" class="unit">°C</span></div>
-                            <div style="display: flex; align-items: center; gap: 8px;"><img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Drop1.png?raw=true" class="icon-drop"><span id="h_${z.id}" class="sensor-value">...</span><span id="h_${z.id}_u" class="unit">%</span></div>
+        // скидаємо масштаб для коректного виміру
+        main.style.transform = 'scale(1)';
+
+        requestAnimationFrame(() => {
+            const rect = main.getBoundingClientRect();
+            const vh = window.innerHeight;
+            const vw = window.innerWidth;
+
+            const scaleH = vh / rect.height;
+            const scaleW = vw / rect.width;
+
+            const scale = Math.min(1, scaleH, scaleW);
+            main.style.transform = `scale(${scale})`;
+        });
+    }
+    window.addEventListener('resize', fitToViewport);
+    window.addEventListener('orientationchange', fitToViewport);
+    // ===== /AUTO FIT =====
+
+    const zones = [
+        {id:'ext', n:'ВУЛИЦЯ'}, {id:'room', n:'КІМНАТА'},
+        {id:'kit', n:'КУХНЯ'}, {id:'bath', n:'ВАННА'}
+    ];
+    const grid = document.getElementById('main-grid');
+    zones.forEach(z => {
+        grid.innerHTML += `
+            <div class="card sun-gradient">
+                <span class="section-title">${z.n}</span>
+                <div class="sensor-body">
+                    <img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: baseline;">
+                            <span id="t_${z.id}" class="sensor-value">...</span><span id="t_${z.id}_u" class="unit">°C</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Drop1.png?raw=true" class="icon-drop">
+                            <span id="h_${z.id}" class="sensor-value">...</span><span id="h_${z.id}_u" class="unit">%</span>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <span>RSSI: <span id="rssi_${z.id}">..</span> <span style="font-size:0.8em">dBm</span></span>
-                        <div class="battery-container">
-                            <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
-                            <span id="bat_text_${z.id}">..%</span>
-                        </div>
+                </div>
+                <div class="card-footer">
+                    <span>RSSI: <span id="rssi_${z.id}">..</span> <span style="font-size:0.8em">dBm</span></span>
+                    <div class="battery-container">
+                        <div class="battery-body"><div id="bat_level_${z.id}" class="battery-level"></div></div>
+                        <span id="bat_text_${z.id}">..%</span>
                     </div>
-                </div>`;
-        });
+                </div>
+            </div>`;
+    });
 
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
-        let sunUpdateFlag = true;
+    // після генерації карток піджати під екран
+    document.addEventListener('DOMContentLoaded', () => {
+        fitToViewport();
+        setTimeout(fitToViewport, 0);
+    });
 
-        function updateValue(id, value, isTemp, iconId) {
-            const el = document.getElementById(id);
-            const unitEl = document.getElementById(id + '_u');
-            if (!el) return;
-            const val = parseFloat(value);
-            const color = isTemp ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF") : "#007F0E";
-            el.innerText = isTemp ? (val > 0 ? "+" : "") + val.toFixed(1) : Math.round(val);
-            el.style.color = color;
-            if (unitEl) unitEl.style.color = color;
-            if (iconId) document.getElementById(iconId).src = val < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
+
+    function updateValue(id, value, isTemp, iconId) {
+        const el = document.getElementById(id);
+        const unitEl = document.getElementById(id + '_u');
+        if (!el) return;
+        const val = parseFloat(value);
+        const color = isTemp ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF") : "#007F0E";
+        el.innerText = isTemp ? (val > 0 ? "+" : "") + val.toFixed(1) : Math.round(val);
+        el.style.color = color;
+        if (unitEl) unitEl.style.color = color;
+        if (iconId) document.getElementById(iconId).src = val < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
+    }
+
+    // ===== SUN: строго по sr/ss + зеніт у вершині дуги + оранжевий 10 кроків =====
+    let sunUpdateFlag = true;
+    setInterval(() => { sunUpdateFlag = true; }, 30000);
+
+    const sunState = { sr: null, ss: null, lastProgress: null };
+
+    const SUN_UPDATE_STEP_SEC = 30;
+    const SUN_ORANGE_STEPS = 10;
+    const SUN_ORANGE_WINDOW_SEC = SUN_ORANGE_STEPS * SUN_UPDATE_STEP_SEC;
+
+    const SUN_COLOR_YELLOW = '#FFD54A';
+    const SUN_COLOR_ORANGE = '#FF9800';
+
+    function toMin(t) {
+        if (!t || typeof t !== 'string' || !t.includes(':')) return null;
+        const a = t.split(':');
+        const hh = parseInt(a[0], 10);
+        const mm = parseInt(a[1], 10);
+        if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+        return hh * 60 + mm;
+    }
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+    function getDayWindow(nowStr, sr, ss) {
+        const now0  = toMin(nowStr);
+        const rise0 = toMin(sr);
+        const set0  = toMin(ss);
+        if (now0 === null || rise0 === null || set0 === null) return null;
+
+        let now = now0, rise = rise0, set = set0;
+
+        // якщо sunset "завтра"
+        if (set <= rise) {
+            set += 1440;
+            if (now < rise) now += 1440;
+        }
+        return { now, rise, set, now0, rise0, set0 };
+    }
+
+    function isDayByTime(nowStr, sr, ss) {
+        const w = getDayWindow(nowStr, sr, ss);
+        if (!w) return null;
+        return (w.now >= w.rise && w.now <= w.set); // включно
+    }
+
+    function getDayProgress(nowStr, sr, ss) {
+        const w = getDayWindow(nowStr, sr, ss);
+        if (!w) return null;
+        const len = (w.set - w.rise);
+        if (len <= 0) return null;
+        return clamp01((w.now - w.rise) / len);
+    }
+
+    function setSunByProgress(progress) {
+        const sun = document.getElementById('sun-body');
+        const angle = Math.PI - (progress * Math.PI);
+        sun.style.left = `calc(50% + ${Math.cos(angle) * 70}px)`;
+        sun.style.top  = (105 - Math.sin(angle) * 70) + "px";
+    }
+
+    function setSunColor(isOrange) {
+        const sun = document.getElementById('sun-body');
+        const col = isOrange ? SUN_COLOR_ORANGE : SUN_COLOR_YELLOW;
+        sun.style.background = col;
+        sun.style.boxShadow = `0 0 10px ${col}`;
+    }
+
+    function updateSun(nowStr, sr, ss) {
+        const sun = document.getElementById('sun-body');
+
+        const day = isDayByTime(nowStr, sr, ss);
+        if (day === null) return;
+
+        if (!day) { sun.style.opacity = 0; return; }
+
+        sun.style.opacity = 1;
+
+        const p = getDayProgress(nowStr, sr, ss);
+        if (p === null) {
+            setSunByProgress(sunState.lastProgress ?? 0.5);
+            setSunColor(false);
+            return;
         }
 
-        function calculateSunTimer(nowStr, sr, ss) {
-            if (!nowStr || !sr || !ss) return;
-            const toMin = t => { let a=t.split(':'); return (+a[0])*60+(+a[1]); };
-            let now = toMin(nowStr), rise = toMin(sr), set = toMin(ss);
-            let diff = 0, label = "";
-            if (now >= rise && now < set) { label = "До заходу"; diff = set - now; }
-            else { label = "До сходу"; diff = now < rise ? (rise - now) : (1440 - now + rise); }
-            document.getElementById('sun-status-label').innerText = label;
-            document.getElementById('sun-timer').innerText = `${Math.floor(diff/60)} год ${diff%60} хв`;
+        sunState.lastProgress = p;
+        setSunByProgress(p);
+
+        const w = getDayWindow(nowStr, sr, ss);
+        if (w) {
+            const secFromRise = (w.now - w.rise) * 60;
+            const secToSet    = (w.set - w.now) * 60;
+            const orange = (secFromRise >= 0 && secFromRise <= SUN_ORANGE_WINDOW_SEC) ||
+                           (secToSet    >= 0 && secToSet    <= SUN_ORANGE_WINDOW_SEC);
+            setSunColor(orange);
+        } else {
+            setSunColor(false);
         }
+    }
 
-        function updateSunPosition(az, el) {
-            const sun = document.getElementById('sun-body');
-            if (el <= 0) { sun.style.opacity = 0; return; }
-            sun.style.opacity = 1;
-            
-            // Прогрес по дузі: від 0 (схід) до 1 (захід)
-            let progress = Math.max(0, Math.min(1, (az - 60) / (300 - 60)));
-            
-            // Кут для точного розрахунку траєкторії: від Пі (ліво) до 0 (право)
-            let angle = Math.PI - (progress * Math.PI);
-            
-            // Радіус нашої CSS дуги — 70px.
-            // Центр осі Y знаходиться на висоті 105px (35px top + 70px height)
-            sun.style.left = `calc(50% + ${Math.cos(angle) * 70}px)`;
-            sun.style.top = (105 - Math.sin(angle) * 70) + "px";
-        }
+    function calculateSunTimer(nowStr, sr, ss) {
+        if (!nowStr || !sr || !ss) return;
+        const now0  = toMin(nowStr);
+        const rise0 = toMin(sr);
+        const set0  = toMin(ss);
+        if (now0 === null || rise0 === null || set0 === null) return;
 
-        setInterval(() => { sunUpdateFlag = true; }, 30000);
+        let now = now0, rise = rise0, set = set0;
+        if (set <= rise) { set += 1440; if (now < rise) now += 1440; }
 
-        client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
+        let diff = 0, label = "";
+        if (now >= rise && now < set) { label = "До заходу"; diff = set - now; }
+        else { label = "До сходу"; diff = now < rise ? (rise - now) : (1440 - now0 + rise0); }
 
-        client.on('message', (topic, message) => {
-            try {
-                const data = JSON.parse(message.toString());
-                document.getElementById('date').innerText = data.date || "...";
-                document.getElementById('time').innerText = data.time || "...";
+        document.getElementById('sun-status-label').innerText = label;
+        document.getElementById('sun-timer').innerText = `${Math.floor(diff/60)} год ${diff%60} хв`;
+    }
+    // ===== /SUN =====
 
-                if (data.korydor) {
-                    updateValue('t_kor', data.korydor.t, true, 't_kor_icon');
-                    updateValue('h_kor', data.korydor.h, false);
-                    document.getElementById('pres').innerText = data.korydor.p;
-                }
+    client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
 
-                Object.keys(mapping).forEach(key => {
-                    const htmlId = mapping[key];
-                    if (data[key]) {
-                        updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
-                        updateValue('h_' + htmlId, data[key].h, false);
-                        const batLevel = document.getElementById('bat_level_' + htmlId);
-                        const batText = document.getElementById('bat_text_' + htmlId);
-                        if (batLevel) {
-                            batLevel.style.width = data[key].b + '%';
-                            batLevel.style.backgroundColor = data[key].b < 20 ? 'red' : '#08DD08';
-                            batText.innerText = data[key].b + '%';
-                        }
-                        document.getElementById('rssi_' + htmlId).innerText = data[key].rssi || "..";
+    client.on('message', (topic, message) => {
+        try {
+            const data = JSON.parse(message.toString());
+
+            document.getElementById('date').innerText = data.date || "...";
+            document.getElementById('time').innerText = data.time || "...";
+
+            if (data.korydor) {
+                updateValue('t_kor', data.korydor.t, true, 't_kor_icon');
+                updateValue('h_kor', data.korydor.h, false);
+                document.getElementById('pres').innerText = data.korydor.p;
+            }
+
+            Object.keys(mapping).forEach(key => {
+                const htmlId = mapping[key];
+                if (data[key]) {
+                    updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
+                    updateValue('h_' + htmlId, data[key].h, false);
+
+                    const batLevel = document.getElementById('bat_level_' + htmlId);
+                    const batText = document.getElementById('bat_text_' + htmlId);
+
+                    if (batLevel) {
+                        batLevel.style.width = data[key].b + '%';
+                        batLevel.style.backgroundColor = data[key].b < 20 ? 'red' : '#08DD08';
+                        batText.innerText = data[key].b + '%';
                     }
-                });
-
-                if (data.sun) {
-                    document.getElementById("sunrise-t").innerText = data.sun.sr;
-                    document.getElementById("sunset-t").innerText = data.sun.ss;
-                    calculateSunTimer(data.time, data.sun.sr, data.sun.ss);
-                    if (sunUpdateFlag) {
-                        updateSunPosition(data.sun.az, data.sun.el);
-                        sunUpdateFlag = false;
-                    }
+                    document.getElementById('rssi_' + htmlId).innerText = data[key].rssi || "..";
                 }
-            } catch (e) { console.error(e); }
-        });
-    </script>
+            });
+
+            if (data.sun) {
+                if (data.sun.sr) sunState.sr = data.sun.sr;
+                if (data.sun.ss) sunState.ss = data.sun.ss;
+
+                document.getElementById("sunrise-t").innerText = sunState.sr || "...";
+                document.getElementById("sunset-t").innerText  = sunState.ss || "...";
+
+                calculateSunTimer(data.time, sunState.sr, sunState.ss);
+
+                if (sunUpdateFlag) {
+                    const nowStr = data.time || document.getElementById('time').innerText;
+                    updateSun(nowStr, sunState.sr, sunState.ss);
+                    sunUpdateFlag = false;
+
+                    // інколи цифри/шрифти можуть змінити висоту на 1-2px — піджати ще раз
+                    fitToViewport();
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    });
+</script>
 </body>
 </html>
