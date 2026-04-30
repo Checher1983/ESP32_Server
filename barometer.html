@@ -16,19 +16,16 @@
       justify-content:center;
       height:100vh;
       font-family:sans-serif;
-      overflow:hidden; /* без скролу */
+      overflow:hidden;
     }
 
     main{
       width:100%;
-      /* Було занадто "вузько" на телефонах: робимо ширше як у твоєму старому варіанті */
-      max-width: 560px;               /* було 480px */
-      padding: 8px;
+      max-width:560px;
+      padding:8px;
       display:flex;
       flex-direction:column;
       gap:8px;
-
-      /* авто-fit */
       transform-origin: top center;
       will-change: transform;
     }
@@ -115,6 +112,7 @@
 
     /* SUN CARD */
     .sun-card { height:140px; position:relative; }
+
     .sun-arc{
       position:absolute;
       width:140px; height:70px;
@@ -124,7 +122,10 @@
       left:50%;
       transform:translateX(-50%);
       top:35px;
+      z-index: 1;
+      pointer-events: none;
     }
+
     #sun-body{
       position:absolute;
       width:18px; height:18px;
@@ -135,20 +136,43 @@
       z-index:2;
       opacity:0;
       box-shadow:0 0 10px #FFD54A;
+      pointer-events: none;
     }
+
+    /* Центральний блок інформації підняли трохи вгору, щоб не зливалося з "ЗАХІД/СХІД" */
     .sun-center-info{
       position:absolute;
-      top:70px;
+      top:56px;              /* було 70px */
       left:0;
       width:100%;
       text-align:center;
       z-index:5;
+      pointer-events: none;
     }
-    #sun-status-label { font-size:0.75em; color:#8F44FF; font-weight:bold; text-transform:uppercase; }
-    .sun-timer-val { font-size:1.1em; font-weight:bold; display:block; margin-top:2px; }
+
+    #sun-status-label {
+      font-size:0.75em;
+      color:#8F44FF;
+      font-weight:bold;
+      text-transform:uppercase;
+      display:block;
+      margin-bottom:2px;
+      line-height:1.05;
+    }
+
+    .sun-timer-val {
+      font-size:1.05em;      /* трохи менше, щоб гарантовано не лізло в боки */
+      font-weight:bold;
+      display:block;
+      margin-top:0;
+      line-height:1.05;
+    }
+
+    /* Підписи "СХІД/ЗАХІД + час" опускаємо трохи нижче і даємо їм fixed ширину,
+       щоб не зливалося з центром і не накладалось на сонце на краях */
     .sun-times{
       position:absolute;
-      bottom:8px;
+      bottom:6px;            /* було 8px */
       left:12px;
       right:12px;
       display:flex;
@@ -156,7 +180,16 @@
       font-size:0.85em;
       font-weight:bold;
       z-index:3;
+      pointer-events: none;
     }
+    .sun-times > div{
+      width: 92px;           /* резерв місця, щоб не з'їжджало */
+    }
+    .sun-times > div:first-child{ text-align:left; }
+    .sun-times > div:last-child{ text-align:right; }
+
+    /* Щоб сонце на крайніх точках не перекривало підписи — обмежуємо зону руху по X трохи всередину */
+    /* (Реально обмеження робиться в JS через SUN_EDGE_PAD) */
 
     .bottom-area{
       flex-shrink:0;
@@ -229,8 +262,14 @@
           </div>
 
           <div class="sun-times">
-            <div><span style="color:#8F44FF; display:block; font-size:0.65em;">СХІД</span><span id="sunrise-t">...</span></div>
-            <div><span style="color:#8F44FF; display:block; font-size:0.65em;">ЗАХІД</span><span id="sunset-t">...</span></div>
+            <div>
+              <span style="color:#8F44FF; display:block; font-size:0.65em;">СХІД</span>
+              <span id="sunrise-t">...</span>
+            </div>
+            <div>
+              <span style="color:#8F44FF; display:block; font-size:0.65em;">ЗАХІД</span>
+              <span id="sunset-t">...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -244,51 +283,32 @@
   </main>
 
   <script>
-    // ===== AUTO FIT: без скролу, але "більше/ширше" як у старому варіанті =====
-    // Щоб вигляд був "розтягнутіший", дозволимо трохи збільшувати до 1.06
-    // (якщо екран дозволяє). Якщо не дозволяє — зменшить щоб влізло.
+    // ===== AUTO FIT (без скролу) =====
     const FIT_MAX_SCALE = 1.06;
-
     function fitToViewport() {
       const main = document.querySelector('main');
       if (!main) return;
-
       main.style.transform = 'scale(1)';
-
       requestAnimationFrame(() => {
         const rect = main.getBoundingClientRect();
         const vh = window.innerHeight;
         const vw = window.innerWidth;
-
         const scaleH = vh / rect.height;
         const scaleW = vw / rect.width;
-
         let scale = Math.min(scaleH, scaleW);
         scale = Math.min(FIT_MAX_SCALE, scale);
-
-        // якщо раптом дуже великий екран — не роздувати безмежно
-        // але трохи дозволяємо (до FIT_MAX_SCALE)
         main.style.transform = `scale(${scale})`;
       });
     }
     window.addEventListener('resize', fitToViewport);
     window.addEventListener('orientationchange', fitToViewport);
-    // ===== /AUTO FIT =====
 
-    // ===== PULL TO REFRESH (свайп вниз -> перезавантаження) =====
-    // Працює навіть при overflow:hidden, бо ловимо touch-події на document.
+    // ===== PULL TO REFRESH =====
     (function enablePullToRefresh() {
-      let startY = 0;
-      let pulling = false;
-      let triggered = false;
-
-      // Мінімальна дистанція свайпу вниз для перезавантаження
+      let startY = 0, startX = 0;
+      let pulling = false, triggered = false;
       const PULL_DIST = 90;
-
-      // Щоб не конфліктувало з горизонтальними рухами
       const MAX_X_DRIFT = 40;
-
-      let startX = 0;
 
       document.addEventListener('touchstart', (e) => {
         if (!e.touches || e.touches.length !== 1) return;
@@ -301,25 +321,19 @@
       document.addEventListener('touchmove', (e) => {
         if (!pulling || triggered) return;
         if (!e.touches || e.touches.length !== 1) return;
-
         const dy = e.touches[0].clientY - startY;
         const dx = Math.abs(e.touches[0].clientX - startX);
-
-        // свайп має бути вниз і майже без зсуву по X
         if (dx > MAX_X_DRIFT) return;
         if (dy > PULL_DIST) {
           triggered = true;
-          // невелика затримка щоб жест "закінчився"
           setTimeout(() => location.reload(), 50);
         }
       }, {passive:true});
 
-      document.addEventListener('touchend', () => {
-        pulling = false;
-      }, {passive:true});
+      document.addEventListener('touchend', () => { pulling = false; }, {passive:true});
     })();
-    // ===== /PULL TO REFRESH =====
 
+    // ===== Карти зон =====
     const zones = [
       {id:'ext', n:'ВУЛИЦЯ'}, {id:'room', n:'КІМНАТА'},
       {id:'kit', n:'КУХНЯ'}, {id:'bath', n:'ВАННА'}
@@ -351,7 +365,6 @@
         </div>`;
     });
 
-    // після генерації карток — піджати (і трохи розтягнути, якщо можна)
     document.addEventListener('DOMContentLoaded', () => {
       fitToViewport();
       setTimeout(fitToViewport, 0);
@@ -372,7 +385,12 @@
       if (iconId) document.getElementById(iconId).src = val < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
     }
 
-    // ===== SUN: строго по sr/ss + зеніт у вершині + оранжевий 10 кроків =====
+    // ===== SUN: переміщення без перекриттів =====
+    // 1) показ/приховування строго по sr/ss
+    // 2) зеніт (progress=0.5) вгорі дуги
+    // 3) оранжевий 10 кроків по 30с після сходу і перед заходом
+    // 4) ВАЖЛИВО: щоб сонце не накладалось на "СХІД/ЗАХІД" і центр-текст на крайніх точках
+    //    вводимо невеликий "відступ" від країв дуги по X (SUN_EDGE_PAD)
     let sunUpdateFlag = true;
     setInterval(() => { sunUpdateFlag = true; }, 30000);
 
@@ -384,6 +402,12 @@
 
     const SUN_COLOR_YELLOW = '#FFD54A';
     const SUN_COLOR_ORANGE = '#FF9800';
+
+    // Відступ від крайніх точок дуги (в px) щоб сонце не накладалось на "СХІД/ЗАХІД"
+    const SUN_EDGE_PAD = 10;    // підбери 8..14 якщо захочеш
+    const SUN_RADIUS = 70;      // як у CSS дуги
+    const SUN_CENTER_Y = 105;   // як у твоєму коді (35 + 70)
+    const SUN_CENTER_X = 0;     // ми використовуємо calc(50% + ...)
 
     function toMin(t) {
       if (!t || typeof t !== 'string' || !t.includes(':')) return null;
@@ -402,8 +426,6 @@
       if (now0 === null || rise0 === null || set0 === null) return null;
 
       let now = now0, rise = rise0, set = set0;
-
-      // якщо sunset "завтра"
       if (set <= rise) {
         set += 1440;
         if (now < rise) now += 1440;
@@ -425,18 +447,30 @@
       return clamp01((w.now - w.rise) / len);
     }
 
-    function setSunByProgress(progress) {
-      const sun = document.getElementById('sun-body');
-      const angle = Math.PI - (progress * Math.PI);
-      sun.style.left = `calc(50% + ${Math.cos(angle) * 70}px)`;
-      sun.style.top  = (105 - Math.sin(angle) * 70) + "px";
-    }
-
     function setSunColor(isOrange) {
       const sun = document.getElementById('sun-body');
       const col = isOrange ? SUN_COLOR_ORANGE : SUN_COLOR_YELLOW;
       sun.style.background = col;
       sun.style.boxShadow = `0 0 10px ${col}`;
+    }
+
+    function setSunByProgress(progress) {
+      const sun = document.getElementById('sun-body');
+
+      // progress 0..1 -> angle PI..0
+      const angle = Math.PI - (progress * Math.PI);
+
+      // стандартні координати по колу
+      let x = Math.cos(angle) * SUN_RADIUS;
+      let y = SUN_CENTER_Y - Math.sin(angle) * SUN_RADIUS;
+
+      // "обрізаємо" X в межах, щоб не заходило на крайні підписи
+      const maxX = SUN_RADIUS - SUN_EDGE_PAD;
+      if (x >  maxX) x =  maxX;
+      if (x < -maxX) x = -maxX;
+
+      sun.style.left = `calc(50% + ${x}px)`;
+      sun.style.top  = `${y}px`;
     }
 
     function updateSun(nowStr, sr, ss) {
@@ -535,15 +569,9 @@
             const nowStr = data.time || document.getElementById('time').innerText;
             updateSun(nowStr, sunState.sr, sunState.ss);
             sunUpdateFlag = false;
-
-            // трохи стабілізує вигляд при зміні цифр
             fitToViewport();
           }
         }
-
-        // разово/інколи: якщо шрифти/іконки підвантажились і висота змінилась
-        // (на старих браузерах) — піджати ще раз
-        // але не кожне повідомлення, щоб не вантажити
       } catch (e) {
         console.error(e);
       }
