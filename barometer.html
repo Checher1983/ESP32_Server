@@ -163,7 +163,6 @@
     }
     .sun-times > div:first-child{ text-align:left; }
     .sun-times > div:last-child{ text-align:right; }
-
     .bottom-area{
       flex-shrink:0;
       display:flex;
@@ -202,7 +201,6 @@
     .status-bt-offline { color:red; }
     .status-warn { color:#d58b00; }
     .status-offline { color:red; }
-
     .status-part {
       display:inline-block;
       white-space:nowrap;
@@ -275,8 +273,8 @@
   </main>
 
   <script>
-    // ===== AUTO FIT =====
     const FIT_MAX_SCALE = 1.06;
+
     function fitToViewport() {
       const main = document.querySelector('main');
       if (!main) return;
@@ -292,10 +290,10 @@
         main.style.transform = `scale(${scale})`;
       });
     }
+
     window.addEventListener('resize', fitToViewport);
     window.addEventListener('orientationchange', fitToViewport);
 
-    // ===== PULL TO REFRESH =====
     (function enablePullToRefresh() {
       let startY = 0, startX = 0;
       let pulling = false, triggered = false;
@@ -322,7 +320,6 @@
       document.addEventListener('touchend', () => { pulling = false; }, {passive:true});
     })();
 
-    // ===== Карти зон =====
     const zones = [
       {id:'ext', n:'ВУЛИЦЯ'},
       {id:'room', n:'КІМНАТА'},
@@ -376,7 +373,6 @@
       setTimeout(fitToViewport, 0);
     });
 
-    // ===== MQTT =====
     const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
       clientId: 'Web_Barometer_' + Math.random().toString(16).substr(2, 8)
     });
@@ -473,7 +469,6 @@
       clearBTStatus();
     }
 
-    // ===== SUN =====
     let sunUpdateFlag = true;
     setInterval(() => { sunUpdateFlag = true; }, 30000);
 
@@ -533,13 +528,9 @@
 
     function setSunByProgress(progress) {
       const sun = document.getElementById('sun-body');
-
-      // Центр кола дуги: (50%, 105px), радіус 70
-      // Центр сонця рухається саме по дузі
       const angle = Math.PI - (progress * Math.PI);
       const centerX = Math.cos(angle) * SUN_RADIUS;
       const centerY = SUN_CENTER_Y - Math.sin(angle) * SUN_RADIUS;
-
       sun.style.left = `calc(50% + ${centerX}px)`;
       sun.style.top  = `${centerY}px`;
     }
@@ -588,7 +579,6 @@
       document.getElementById('sun-timer').innerText = `${Math.floor(diff/60)} год ${diff%60} хв`;
     }
 
-    // ===== MQTT EVENTS =====
     client.on('connect', () => {
       setServerStatus('● Підключення...', 'status-warn');
       clearBTStatus();
@@ -602,6 +592,12 @@
 
         setServerStatus('● ESP32 Server онлайн', 'status-server-online');
 
+        if (data.ble && Number(data.ble.online) === 0) {
+          setBTStatus('ESP32BT офлайн', 'status-bt-offline');
+        } else {
+          clearBTStatus();
+        }
+
         document.getElementById('date').innerText = data.date || "...";
         document.getElementById('time').innerText = data.time || "...";
 
@@ -611,8 +607,6 @@
           document.getElementById('pres').innerText = data.korydor.p ?? '...';
         }
 
-        let anyBTSensorOnline = false;
-
         Object.keys(mapping).forEach(key => {
           const htmlId = mapping[key];
           if (data[key]) {
@@ -620,7 +614,6 @@
 
             if (tVal !== '...' && tVal !== 'N/A' && tVal !== undefined && tVal !== null && tVal !== '') {
               sensorSeenEver[htmlId] = true;
-              anyBTSensorOnline = true;
 
               updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
               updateValue('h_' + htmlId, data[key].h, false);
@@ -649,12 +642,6 @@
             else setSensorWaiting(htmlId);
           }
         });
-
-        if (anyBTSensorOnline) {
-          clearBTStatus();
-        } else {
-          setBTStatus('ESP32BT офлайн', 'status-bt-offline');
-        }
 
         if (data.sun) {
           if (data.sun.sr) sunState.sr = data.sun.sr;
