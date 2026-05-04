@@ -163,6 +163,7 @@
     }
     .sun-times > div:first-child{ text-align:left; }
     .sun-times > div:last-child{ text-align:right; }
+
     .bottom-area{
       flex-shrink:0;
       display:flex;
@@ -185,7 +186,27 @@
     }
     .btn:hover{ background-color:#28a745; }
     .btn:active{ background-color:yellow; color:#21B1FF; }
-    #status-server{ font-size:12px; font-weight:bold; color:#08DD08; margin:0; }
+
+    #status-server{
+      font-size:12px;
+      font-weight:bold;
+      margin:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      text-align:center;
+    }
+    .status-server-online { color:#08DD08; }
+    .status-bt-offline { color:red; }
+    .status-warn { color:#d58b00; }
+    .status-offline { color:red; }
+
+    .status-part {
+      display:inline-block;
+      white-space:nowrap;
+    }
   </style>
 </head>
 <body>
@@ -194,13 +215,16 @@
       <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Cloud.png?raw=true" alt="Cloud">
       <h1>МЕТЕОСТАНЦІЯ</h1>
     </div>
+
     <div class="top-grid">
       <div class="top-item sun-gradient"><span class="top-label">ДАТА</span><span id="date" class="top-val">...</span></div>
       <div class="top-item sun-gradient"><span class="top-label">ЧАС</span><span id="time" class="top-val">...</span></div>
       <div class="top-item sun-gradient"><span class="top-label">ТИСК</span><span id="pres" class="top-val">...</span><span class="unit" style="color:#007F0E; font-size:0.8em;"> мм</span></div>
     </div>
+
     <div class="cards-area">
       <div class="grid-container" id="main-grid"></div>
+
       <div class="grid-container">
         <div class="card sun-gradient">
           <span class="section-title">КОРИДОР</span>
@@ -217,6 +241,7 @@
             </div>
           </div>
         </div>
+
         <div class="card sun-card sun-gradient">
           <span class="section-title">СОНЦЕ</span>
           <div class="sun-arc"></div>
@@ -238,13 +263,19 @@
         </div>
       </div>
     </div>
+
     <div class="bottom-area">
       <a href="graphs.html" class="btn">Графіки</a>
       <a href="index.html" class="btn">На головну</a>
-      <div id="status-server">● Підключення...</div>
+      <div id="status-server">
+        <span id="server-status" class="status-part status-warn">● Підключення...</span>
+        <span id="bt-status" class="status-part"></span>
+      </div>
     </div>
   </main>
+
   <script>
+    // ===== AUTO FIT =====
     const FIT_MAX_SCALE = 1.06;
     function fitToViewport() {
       const main = document.querySelector('main');
@@ -264,6 +295,7 @@
     window.addEventListener('resize', fitToViewport);
     window.addEventListener('orientationchange', fitToViewport);
 
+    // ===== PULL TO REFRESH =====
     (function enablePullToRefresh() {
       let startY = 0, startX = 0;
       let pulling = false, triggered = false;
@@ -290,10 +322,28 @@
       document.addEventListener('touchend', () => { pulling = false; }, {passive:true});
     })();
 
+    // ===== Карти зон =====
     const zones = [
-      {id:'ext', n:'ВУЛИЦЯ'}, {id:'room', n:'КІМНАТА'},
-      {id:'kit', n:'КУХНЯ'}, {id:'bath', n:'ВАННА'}
+      {id:'ext', n:'ВУЛИЦЯ'},
+      {id:'room', n:'КІМНАТА'},
+      {id:'kit', n:'КУХНЯ'},
+      {id:'bath', n:'ВАННА'}
     ];
+
+    const mapping = {
+      'vulytsia': 'ext',
+      'room': 'room',
+      'kitchen': 'kit',
+      'bath': 'bath'
+    };
+
+    const sensorSeenEver = {
+      ext: false,
+      room: false,
+      kit: false,
+      bath: false
+    };
+
     const grid = document.getElementById('main-grid');
     zones.forEach(z => {
       grid.innerHTML += `
@@ -326,17 +376,29 @@
       setTimeout(fitToViewport, 0);
     });
 
+    // ===== MQTT =====
     const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
       clientId: 'Web_Barometer_' + Math.random().toString(16).substr(2, 8)
     });
 
-    const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
     let lastUpdate = Date.now();
 
-    function setStatus(text, color) {
-      const el = document.getElementById('status-server');
-      el.innerText = '● ' + text;
-      el.style.color = color;
+    const serverStatusEl = document.getElementById('server-status');
+    const btStatusEl = document.getElementById('bt-status');
+
+    function setServerStatus(text, className) {
+      serverStatusEl.innerText = text;
+      serverStatusEl.className = 'status-part ' + className;
+    }
+
+    function setBTStatus(text, className) {
+      btStatusEl.innerText = text;
+      btStatusEl.className = 'status-part ' + className;
+    }
+
+    function clearBTStatus() {
+      btStatusEl.innerText = '';
+      btStatusEl.className = 'status-part';
     }
 
     function setTextValue(id, value, color) {
@@ -348,24 +410,36 @@
       if (unitEl) unitEl.style.color = color;
     }
 
+    function setSensorWaiting(zoneId) {
+      setTextValue('t_' + zoneId, '...', '#000');
+      setTextValue('h_' + zoneId, '...', '#000');
+      document.getElementById('rssi_' + zoneId).innerText = '..';
+      document.getElementById('bat_level_' + zoneId).style.width = '0%';
+      document.getElementById('bat_level_' + zoneId).style.backgroundColor = '#999';
+      document.getElementById('bat_text_' + zoneId).innerText = '..%';
+      document.getElementById('t_' + zoneId + '_icon').src =
+        'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true';
+    }
+
+    function setSensorOffline(zoneId) {
+      setTextValue('t_' + zoneId, '...', '#777');
+      setTextValue('h_' + zoneId, '...', '#777');
+      document.getElementById('rssi_' + zoneId).innerText = '..';
+      document.getElementById('bat_level_' + zoneId).style.width = '0%';
+      document.getElementById('bat_level_' + zoneId).style.backgroundColor = '#999';
+      document.getElementById('bat_text_' + zoneId).innerText = '..%';
+      document.getElementById('t_' + zoneId + '_icon').src =
+        'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true';
+    }
+
     function updateValue(id, value, isTemp, iconId) {
-      if (value === '...' || value === 'N/A' || value === undefined || value === null || value === '') {
-        const showVal = value === 'N/A' ? 'N/A' : '...';
-        const color = value === 'N/A' ? 'red' : '#555';
-        setTextValue(id, showVal, color);
-        if (iconId) {
-          document.getElementById(iconId).src = 'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true';
-        }
-        return;
-      }
-
       const val = parseFloat(value);
-      if (Number.isNaN(val)) {
-        setTextValue(id, '...', '#555');
-        return;
-      }
+      if (Number.isNaN(val)) return;
 
-      const color = isTemp ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF") : "#007F0E";
+      const color = isTemp
+        ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF")
+        : "#007F0E";
+
       setTextValue(id, isTemp ? (val > 0 ? "+" : "") + val.toFixed(1) : Math.round(val), color);
 
       if (iconId) {
@@ -385,12 +459,8 @@
       setTextValue('h_kor', '...', '#555');
 
       ['ext', 'room', 'kit', 'bath'].forEach(id => {
-        setTextValue('t_' + id, '...', '#555');
-        setTextValue('h_' + id, '...', '#555');
-        document.getElementById('rssi_' + id).innerText = '..';
-        document.getElementById('bat_level_' + id).style.width = '0%';
-        document.getElementById('bat_level_' + id).style.backgroundColor = '#999';
-        document.getElementById('bat_text_' + id).innerText = '..%';
+        if (sensorSeenEver[id]) setSensorOffline(id);
+        else setSensorWaiting(id);
       });
 
       document.getElementById("sunrise-t").innerText = "...";
@@ -399,9 +469,11 @@
       document.getElementById('sun-timer').innerText = '-- год -- хв';
       document.getElementById('sun-body').style.opacity = 0;
 
-      setStatus('ESP32 Server офлайн', 'red');
+      setServerStatus('● ESP32 Server офлайн', 'status-offline');
+      clearBTStatus();
     }
 
+    // ===== SUN =====
     let sunUpdateFlag = true;
     setInterval(() => { sunUpdateFlag = true; }, 30000);
 
@@ -411,10 +483,8 @@
     const SUN_ORANGE_WINDOW_SEC = SUN_ORANGE_STEPS * SUN_UPDATE_STEP_SEC;
     const SUN_COLOR_YELLOW = '#FFD54A';
     const SUN_COLOR_ORANGE = '#FF9800';
-    const SUN_EDGE_PAD = 10;
     const SUN_RADIUS = 70;
     const SUN_CENTER_Y = 105;
-    const SUN_CENTER_X = 0;
 
     function toMin(t) {
       if (!t || typeof t !== 'string' || !t.includes(':')) return null;
@@ -424,7 +494,9 @@
       if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
       return hh * 60 + mm;
     }
+
     function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
     function getDayWindow(nowStr, sr, ss) {
       const now0  = toMin(nowStr);
       const rise0 = toMin(sr);
@@ -437,11 +509,13 @@
       }
       return { now, rise, set, now0, rise0, set0 };
     }
+
     function isDayByTime(nowStr, sr, ss) {
       const w = getDayWindow(nowStr, sr, ss);
       if (!w) return null;
       return (w.now >= w.rise && w.now <= w.set);
     }
+
     function getDayProgress(nowStr, sr, ss) {
       const w = getDayWindow(nowStr, sr, ss);
       if (!w) return null;
@@ -449,28 +523,33 @@
       if (len <= 0) return null;
       return clamp01((w.now - w.rise) / len);
     }
+
     function setSunColor(isOrange) {
       const sun = document.getElementById('sun-body');
       const col = isOrange ? SUN_COLOR_ORANGE : SUN_COLOR_YELLOW;
       sun.style.background = col;
       sun.style.boxShadow = `0 0 10px ${col}`;
     }
+
     function setSunByProgress(progress) {
       const sun = document.getElementById('sun-body');
+
+      // Центр кола дуги: (50%, 105px), радіус 70
+      // Центр сонця рухається саме по дузі
       const angle = Math.PI - (progress * Math.PI);
-      let x = Math.cos(angle) * SUN_RADIUS;
-      let y = SUN_CENTER_Y - Math.sin(angle) * SUN_RADIUS;
-      const maxX = SUN_RADIUS - SUN_EDGE_PAD;
-      if (x >  maxX) x =  maxX;
-      if (x < -maxX) x = -maxX;
-      sun.style.left = `calc(50% + ${x}px)`;
-      sun.style.top  = `${y}px`;
+      const centerX = Math.cos(angle) * SUN_RADIUS;
+      const centerY = SUN_CENTER_Y - Math.sin(angle) * SUN_RADIUS;
+
+      sun.style.left = `calc(50% + ${centerX}px)`;
+      sun.style.top  = `${centerY}px`;
     }
+
     function updateSun(nowStr, sr, ss) {
       const sun = document.getElementById('sun-body');
       const day = isDayByTime(nowStr, sr, ss);
       if (day === null) return;
       if (!day) { sun.style.opacity = 0; return; }
+
       sun.style.opacity = 1;
       const p = getDayProgress(nowStr, sr, ss);
       if (p === null) {
@@ -478,8 +557,10 @@
         setSunColor(false);
         return;
       }
+
       sunState.lastProgress = p;
       setSunByProgress(p);
+
       const w = getDayWindow(nowStr, sr, ss);
       if (w) {
         const secFromRise = (w.now - w.rise) * 60;
@@ -491,6 +572,7 @@
         setSunColor(false);
       }
     }
+
     function calculateSunTimer(nowStr, sr, ss) {
       if (!nowStr || !sr || !ss) return;
       const now0  = toMin(nowStr);
@@ -506,8 +588,10 @@
       document.getElementById('sun-timer').innerText = `${Math.floor(diff/60)} год ${diff%60} хв`;
     }
 
+    // ===== MQTT EVENTS =====
     client.on('connect', () => {
-      setStatus('Підключення...', '#d58b00');
+      setServerStatus('● Підключення...', 'status-warn');
+      clearBTStatus();
       client.subscribe('7091003_Checher_ESP32/all_data');
     });
 
@@ -515,7 +599,8 @@
       try {
         const data = JSON.parse(message.toString());
         lastUpdate = Date.now();
-        setStatus('ESP32 Server онлайн', '#08DD08');
+
+        setServerStatus('● ESP32 Server онлайн', 'status-server-online');
 
         document.getElementById('date').innerText = data.date || "...";
         document.getElementById('time').innerText = data.time || "...";
@@ -526,19 +611,20 @@
           document.getElementById('pres').innerText = data.korydor.p ?? '...';
         }
 
+        let anyBTSensorOnline = false;
+
         Object.keys(mapping).forEach(key => {
           const htmlId = mapping[key];
           if (data[key]) {
-            updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
+            const tVal = data[key].t;
 
-            if (data[key].t === 'N/A' || data[key].t === '...') {
-              setTextValue('h_' + htmlId, '...', '#555');
-              document.getElementById('rssi_' + htmlId).innerText = '..';
-              document.getElementById('bat_level_' + htmlId).style.width = '0%';
-              document.getElementById('bat_level_' + htmlId).style.backgroundColor = '#999';
-              document.getElementById('bat_text_' + htmlId).innerText = '..%';
-            } else {
+            if (tVal !== '...' && tVal !== 'N/A' && tVal !== undefined && tVal !== null && tVal !== '') {
+              sensorSeenEver[htmlId] = true;
+              anyBTSensorOnline = true;
+
+              updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
               updateValue('h_' + htmlId, data[key].h, false);
+
               const batLevel = document.getElementById('bat_level_' + htmlId);
               const batText  = document.getElementById('bat_text_' + htmlId);
               if (batLevel) {
@@ -554,9 +640,21 @@
                 }
               }
               document.getElementById('rssi_' + htmlId).innerText = data[key].rssi ?? "..";
+            } else {
+              if (sensorSeenEver[htmlId]) setSensorOffline(htmlId);
+              else setSensorWaiting(htmlId);
             }
+          } else {
+            if (sensorSeenEver[htmlId]) setSensorOffline(htmlId);
+            else setSensorWaiting(htmlId);
           }
         });
+
+        if (anyBTSensorOnline) {
+          clearBTStatus();
+        } else {
+          setBTStatus('ESP32BT офлайн', 'status-bt-offline');
+        }
 
         if (data.sun) {
           if (data.sun.sr) sunState.sr = data.sun.sr;
@@ -577,15 +675,18 @@
     });
 
     client.on('reconnect', () => {
-      setStatus('Перепідключення...', '#d58b00');
+      setServerStatus('● Перепідключення...', 'status-warn');
+      clearBTStatus();
     });
 
     client.on('close', () => {
-      setStatus('Офлайн (з’єднання втрачено)', 'red');
+      setServerStatus('● Офлайн (з’єднання втрачено)', 'status-offline');
+      clearBTStatus();
     });
 
     client.on('error', () => {
-      setStatus('Помилка MQTT', 'red');
+      setServerStatus('● Помилка MQTT', 'status-offline');
+      clearBTStatus();
     });
 
     setInterval(() => {
