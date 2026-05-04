@@ -8,8 +8,8 @@
     <style>
         * { user-select: none; -webkit-user-select: none; }
         .btn {
-            text-decoration: none; background-color: #21B1FF; color: yellow; 
-            padding: 12px 10px; border-radius: 8px; border: 2px solid black; 
+            text-decoration: none; background-color: #21B1FF; color: yellow;
+            padding: 12px 10px; border-radius: 8px; border: 2px solid black;
             font-weight: bold; width: 260px; display: inline-block;
             transition: 0.3s; text-align: center; cursor: pointer; font-family: sans-serif;
         }
@@ -25,15 +25,13 @@
         </header>
         <h3 style="color: black;">Дата: <span id="date-val" style="color: red; font-weight: bold;">...</span></h3>
         <h3 style="color: black; margin-bottom: 30px;">Час: <span id="time-val" style="color: red; font-weight: bold;">...</span></h3>
-        
         <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
             <a href="barometer.html" class="btn">Метеостанція</a>
-            <div class="btn">Живлення Raspberry Pi 5</div>
-            <div class="btn">Статистика відключень</div>
+            <a href="power_raspberry_pi.html" class="btn">Живлення Raspberry Pi 5</a>
+            <a href="statistics.html" class="btn">Статистика відключень</a>
         </div>
         <div id="status-footer">Статус: <span id="mqtt-status">Підключення...</span></div>
     </main>
-
     <script>
         const statusText = document.getElementById('mqtt-status');
         const dateEl = document.getElementById('date-val');
@@ -44,9 +42,12 @@
             const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
                 clientId: 'Web_Index_' + Math.random().toString(16).substr(2, 8)
             });
+
             const topic = '7091003_Checher_ESP32/all_data';
 
-            client.on('connect', () => { client.subscribe(topic); });
+            client.on('connect', () => {
+                client.subscribe(topic);
+            });
 
             client.on('message', (t, message) => {
                 try {
@@ -54,21 +55,41 @@
                     lastUpdate = Date.now();
                     statusText.innerText = 'Онлайн';
                     statusText.parentElement.style.color = '#08DD08';
-                    dateEl.innerText = data.date;
-                    timeEl.innerText = data.time;
-                } catch (e) { console.error("JSON Error", e); }
+                    dateEl.innerText = data.date || '...';
+                    timeEl.innerText = data.time || '...';
+                } catch (e) {
+                    console.error("JSON Error", e);
+                }
+            });
+
+            client.on('reconnect', () => {
+                statusText.innerText = 'Перепідключення...';
+                statusText.parentElement.style.color = '#d58b00';
+            });
+
+            client.on('close', () => {
+                statusText.innerText = 'Офлайн (з’єднання втрачено)';
+                statusText.parentElement.style.color = 'red';
+            });
+
+            client.on('error', () => {
+                statusText.innerText = 'Помилка MQTT';
+                statusText.parentElement.style.color = 'red';
             });
         }
 
         setInterval(() => {
             if (Date.now() - lastUpdate > 15000) {
-                dateEl.innerText = "..."; timeEl.innerText = "...";
+                dateEl.innerText = "...";
+                timeEl.innerText = "...";
                 statusText.innerText = 'Офлайн (ESP32 вимкнена)';
                 statusText.parentElement.style.color = 'red';
             }
         }, 5000);
 
-        window.onload = () => { if (typeof mqtt !== 'undefined') startMQTT(); };
+        window.onload = () => {
+            if (typeof mqtt !== 'undefined') startMQTT();
+        };
     </script>
 </body>
 </html>
