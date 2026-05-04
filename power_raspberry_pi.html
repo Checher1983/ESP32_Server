@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Живлення Raspberry Pi 5</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+  <style>
+    * { user-select: none; -webkit-user-select: none; }
+    .btn{
+      text-decoration:none;
+      background-color:#21B1FF;
+      color:yellow;
+      padding:12px 10px;
+      border-radius:14px;
+      border:2px solid black;
+      font-weight:bold;
+      width:100%;
+      max-width:560px;
+      font-size:1.15em;
+      text-align:center;
+      transition:0.3s;
+      display:inline-block;
+      font-family:sans-serif;
+    }
+    .btn:hover{ background-color:#28a745; }
+    .btn:active{ background-color:yellow; color:#21B1FF; }
+    #status-server{ font-size:12px; font-weight:bold; color:#08DD08; margin:0; font-family:sans-serif; }
+  </style>
+</head>
+<body style="background-color:#E4EAF6; margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:sans-serif;">
+  <main style="width:100%; max-width:560px; padding:8px; display:flex; flex-direction:column; align-items:center; gap:16px; text-align:center;">
+    <h1 style="color:#333; font-size:1.5em; margin:0; text-transform:uppercase;">ЖИВЛЕННЯ RASPBERRY PI 5</h1>
+    <div style="font-size:1.2em; font-weight:bold; color:#555;">TBD</div>
+    <a href="index.html" class="btn">На головну</a>
+    <div id="status-server">● Підключення...</div>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById('status-server');
+    let lastUpdate = Date.now();
+
+    function setStatus(text, color) {
+      statusEl.innerText = '● ' + text;
+      statusEl.style.color = color;
+    }
+
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
+    });
+
+    client.on('connect', () => {
+      setStatus('Підключення...', '#d58b00');
+      client.subscribe('7091003_Checher_ESP32/all_data');
+    });
+
+    client.on('message', () => {
+      lastUpdate = Date.now();
+      setStatus('ESP32 Server онлайн', '#08DD08');
+    });
+
+    client.on('reconnect', () => {
+      setStatus('Перепідключення...', '#d58b00');
+    });
+
+    client.on('close', () => {
+      setStatus('Офлайн (з’єднання втрачено)', 'red');
+    });
+
+    client.on('error', () => {
+      setStatus('Помилка MQTT', 'red');
+    });
+
+    setInterval(() => {
+      if (Date.now() - lastUpdate > 20000) {
+        setStatus('ESP32 Server офлайн', 'red');
+      }
+    }, 5000);
+  </script>
+</body>
+</html>
