@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Метеостанція ESP32</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
-
   <style>
     * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
-
     body{
       background-color:#E4EAF6;
       margin:0;
@@ -18,7 +16,6 @@
       font-family:sans-serif;
       overflow:hidden;
     }
-
     main{
       width:100%;
       max-width:560px;
@@ -29,31 +26,25 @@
       transform-origin: top center;
       will-change: transform;
     }
-
     .main-title { display:flex; align-items:center; justify-content:center; gap:10px; flex-shrink:0; }
     .main-title img { height:32px; width:auto; }
     h1 { color:#333; font-size:1.5em; margin:0; text-transform:uppercase; }
-
     .sun-gradient{
       background: linear-gradient(180deg, #B2F2BB 0%, #E6FFEA 100%) !important;
       border:1.5px solid #99d9a4;
     }
-
     .top-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; flex-shrink:0; }
     .top-item { padding:6px 2px; border-radius:14px; text-align:center; }
     .top-label { display:block; font-size:0.65em; color:#555; font-weight:bold; margin-bottom:2px; }
     .top-val { font-size:0.95em; font-weight:bold; color:#007F0E; }
-
     .cards-area{ display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
     .grid-container{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-
     .card{
       padding:8px 12px;
       border-radius:20px;
       position:relative;
       box-shadow:0 2px 4px rgba(0,0,0,0.05);
     }
-
     .section-title{
       color:#8F44FF;
       font-weight:bold;
@@ -62,14 +53,12 @@
       display:block;
       text-align:center;
     }
-
     .sensor-body{
       display:flex;
       align-items:center;
       justify-content:center;
       gap:10px;
     }
-
     .icon-temp { width:19px; height:auto; }
     .sensor-value, .unit{
       font-weight:bold;
@@ -79,7 +68,6 @@
     }
     .unit { margin-left:2px; }
     .icon-drop { width:19px; height:auto; }
-
     .card-footer{
       display:flex;
       justify-content:space-between;
@@ -90,7 +78,6 @@
       font-size:0.75em;
       font-weight:bold;
     }
-
     .battery-container{ display:flex; align-items:center; gap:4px; }
     .battery-body{
       width:26px; height:12px;
@@ -109,10 +96,7 @@
       border-radius:0 1px 1px 0;
     }
     .battery-level{ height:100%; width:0%; transition:0.5s; }
-
-    /* SUN CARD */
     .sun-card { height:140px; position:relative; }
-
     .sun-arc{
       position:absolute;
       width:140px; height:70px;
@@ -125,7 +109,6 @@
       z-index: 1;
       pointer-events: none;
     }
-
     #sun-body{
       position:absolute;
       width:18px; height:18px;
@@ -138,18 +121,15 @@
       box-shadow:0 0 10px #FFD54A;
       pointer-events: none;
     }
-
-    /* Центральний блок інформації підняли трохи вгору, щоб не зливалося з "ЗАХІД/СХІД" */
     .sun-center-info{
       position:absolute;
-      top:56px;              /* було 70px */
+      top:56px;
       left:0;
       width:100%;
       text-align:center;
       z-index:5;
       pointer-events: none;
     }
-
     #sun-status-label {
       font-size:0.75em;
       color:#8F44FF;
@@ -159,20 +139,16 @@
       margin-bottom:2px;
       line-height:1.05;
     }
-
     .sun-timer-val {
-      font-size:1.05em;      /* трохи менше, щоб гарантовано не лізло в боки */
+      font-size:1.05em;
       font-weight:bold;
       display:block;
       margin-top:0;
       line-height:1.05;
     }
-
-    /* Підписи "СХІД/ЗАХІД + час" опускаємо трохи нижче і даємо їм fixed ширину,
-       щоб не зливалося з центром і не накладалось на сонце на краях */
     .sun-times{
       position:absolute;
-      bottom:6px;            /* було 8px */
+      bottom:6px;
       left:12px;
       right:12px;
       display:flex;
@@ -183,14 +159,10 @@
       pointer-events: none;
     }
     .sun-times > div{
-      width: 92px;           /* резерв місця, щоб не з'їжджало */
+      width: 92px;
     }
     .sun-times > div:first-child{ text-align:left; }
     .sun-times > div:last-child{ text-align:right; }
-
-    /* Щоб сонце на крайніх точках не перекривало підписи — обмежуємо зону руху по X трохи всередину */
-    /* (Реально обмеження робиться в JS через SUN_EDGE_PAD) */
-
     .bottom-area{
       flex-shrink:0;
       display:flex;
@@ -198,7 +170,6 @@
       align-items:center;
       gap:8px;
     }
-
     .btn{
       text-decoration:none;
       background-color:#21B1FF;
@@ -217,28 +188,24 @@
     #status-server{ font-size:12px; font-weight:bold; color:#08DD08; margin:0; }
   </style>
 </head>
-
 <body>
   <main>
     <div class="main-title">
       <img src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Cloud.png?raw=true" alt="Cloud">
       <h1>МЕТЕОСТАНЦІЯ</h1>
     </div>
-
     <div class="top-grid">
       <div class="top-item sun-gradient"><span class="top-label">ДАТА</span><span id="date" class="top-val">...</span></div>
       <div class="top-item sun-gradient"><span class="top-label">ЧАС</span><span id="time" class="top-val">...</span></div>
       <div class="top-item sun-gradient"><span class="top-label">ТИСК</span><span id="pres" class="top-val">...</span><span class="unit" style="color:#007F0E; font-size:0.8em;"> мм</span></div>
     </div>
-
     <div class="cards-area">
       <div class="grid-container" id="main-grid"></div>
-
       <div class="grid-container">
         <div class="card sun-gradient">
           <span class="section-title">КОРИДОР</span>
           <div class="sensor-body">
-            <img id="t_kor_icon" src="img/Temp_High.png" class="icon-temp">
+            <img id="t_kor_icon" src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true" class="icon-temp">
             <div style="display:flex; flex-direction:column; gap:4px;">
               <div style="display:flex; align-items:baseline;">
                 <span id="t_kor" class="sensor-value">...</span><span id="t_kor_u" class="unit">°C</span>
@@ -250,17 +217,14 @@
             </div>
           </div>
         </div>
-
         <div class="card sun-card sun-gradient">
           <span class="section-title">СОНЦЕ</span>
           <div class="sun-arc"></div>
           <div id="sun-body"></div>
-
           <div class="sun-center-info">
             <span id="sun-status-label">—</span>
             <span id="sun-timer" class="sun-timer-val">-- год -- хв</span>
           </div>
-
           <div class="sun-times">
             <div>
               <span style="color:#8F44FF; display:block; font-size:0.65em;">СХІД</span>
@@ -274,16 +238,13 @@
         </div>
       </div>
     </div>
-
     <div class="bottom-area">
-      <a href="logs.html" class="btn">Журнал та графіки</a>
-      <a href="#" class="btn">На головну</a>
-      <div id="status-server">● ESP32 Server онлайн</div>
+      <a href="graphs.html" class="btn">Графіки</a>
+      <a href="index.html" class="btn">На головну</a>
+      <div id="status-server">● Підключення...</div>
     </div>
   </main>
-
   <script>
-    // ===== AUTO FIT (без скролу) =====
     const FIT_MAX_SCALE = 1.06;
     function fitToViewport() {
       const main = document.querySelector('main');
@@ -303,13 +264,11 @@
     window.addEventListener('resize', fitToViewport);
     window.addEventListener('orientationchange', fitToViewport);
 
-    // ===== PULL TO REFRESH =====
     (function enablePullToRefresh() {
       let startY = 0, startX = 0;
       let pulling = false, triggered = false;
       const PULL_DIST = 90;
       const MAX_X_DRIFT = 40;
-
       document.addEventListener('touchstart', (e) => {
         if (!e.touches || e.touches.length !== 1) return;
         startY = e.touches[0].clientY;
@@ -317,7 +276,6 @@
         pulling = true;
         triggered = false;
       }, {passive:true});
-
       document.addEventListener('touchmove', (e) => {
         if (!pulling || triggered) return;
         if (!e.touches || e.touches.length !== 1) return;
@@ -329,11 +287,9 @@
           setTimeout(() => location.reload(), 50);
         }
       }, {passive:true});
-
       document.addEventListener('touchend', () => { pulling = false; }, {passive:true});
     })();
 
-    // ===== Карти зон =====
     const zones = [
       {id:'ext', n:'ВУЛИЦЯ'}, {id:'room', n:'КІМНАТА'},
       {id:'kit', n:'КУХНЯ'}, {id:'bath', n:'ВАННА'}
@@ -344,7 +300,7 @@
         <div class="card sun-gradient">
           <span class="section-title">${z.n}</span>
           <div class="sensor-body">
-            <img id="t_${z.id}_icon" src="img/Temp_High.png" class="icon-temp">
+            <img id="t_${z.id}_icon" src="https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true" class="icon-temp">
             <div style="display:flex; flex-direction:column; gap:4px;">
               <div style="display:flex; align-items:baseline;">
                 <span id="t_${z.id}" class="sensor-value">...</span><span id="t_${z.id}_u" class="unit">°C</span>
@@ -370,44 +326,95 @@
       setTimeout(fitToViewport, 0);
     });
 
-    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-    const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: 'Web_Barometer_' + Math.random().toString(16).substr(2, 8)
+    });
 
-    function updateValue(id, value, isTemp, iconId) {
+    const mapping = {'vulytsia': 'ext', 'room': 'room', 'kitchen': 'kit', 'bath': 'bath'};
+    let lastUpdate = Date.now();
+
+    function setStatus(text, color) {
+      const el = document.getElementById('status-server');
+      el.innerText = '● ' + text;
+      el.style.color = color;
+    }
+
+    function setTextValue(id, value, color) {
       const el = document.getElementById(id);
       const unitEl = document.getElementById(id + '_u');
       if (!el) return;
-      const val = parseFloat(value);
-      const color = isTemp ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF") : "#007F0E";
-      el.innerText = isTemp ? (val > 0 ? "+" : "") + val.toFixed(1) : Math.round(val);
+      el.innerText = value;
       el.style.color = color;
       if (unitEl) unitEl.style.color = color;
-      if (iconId) document.getElementById(iconId).src = val < 0 ? 'img/Temp_Low.png' : 'img/Temp_High.png';
     }
 
-    // ===== SUN: переміщення без перекриттів =====
-    // 1) показ/приховування строго по sr/ss
-    // 2) зеніт (progress=0.5) вгорі дуги
-    // 3) оранжевий 10 кроків по 30с після сходу і перед заходом
-    // 4) ВАЖЛИВО: щоб сонце не накладалось на "СХІД/ЗАХІД" і центр-текст на крайніх точках
-    //    вводимо невеликий "відступ" від країв дуги по X (SUN_EDGE_PAD)
+    function updateValue(id, value, isTemp, iconId) {
+      if (value === '...' || value === 'N/A' || value === undefined || value === null || value === '') {
+        const showVal = value === 'N/A' ? 'N/A' : '...';
+        const color = value === 'N/A' ? 'red' : '#555';
+        setTextValue(id, showVal, color);
+        if (iconId) {
+          document.getElementById(iconId).src = 'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true';
+        }
+        return;
+      }
+
+      const val = parseFloat(value);
+      if (Number.isNaN(val)) {
+        setTextValue(id, '...', '#555');
+        return;
+      }
+
+      const color = isTemp ? ((val >= 25) ? "#FF0000" : (val >= 18) ? "#007F0E" : "#21B1FF") : "#007F0E";
+      setTextValue(id, isTemp ? (val > 0 ? "+" : "") + val.toFixed(1) : Math.round(val), color);
+
+      if (iconId) {
+        document.getElementById(iconId).src =
+          val < 0
+            ? 'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_Low.png?raw=true'
+            : 'https://github.com/Checher1983/ESP32_Server/blob/main/img/Temp_High.png?raw=true';
+      }
+    }
+
+    function resetOffline() {
+      document.getElementById('date').innerText = '...';
+      document.getElementById('time').innerText = '...';
+      document.getElementById('pres').innerText = '...';
+
+      setTextValue('t_kor', '...', '#555');
+      setTextValue('h_kor', '...', '#555');
+
+      ['ext', 'room', 'kit', 'bath'].forEach(id => {
+        setTextValue('t_' + id, '...', '#555');
+        setTextValue('h_' + id, '...', '#555');
+        document.getElementById('rssi_' + id).innerText = '..';
+        document.getElementById('bat_level_' + id).style.width = '0%';
+        document.getElementById('bat_level_' + id).style.backgroundColor = '#999';
+        document.getElementById('bat_text_' + id).innerText = '..%';
+      });
+
+      document.getElementById("sunrise-t").innerText = "...";
+      document.getElementById("sunset-t").innerText  = "...";
+      document.getElementById('sun-status-label').innerText = '—';
+      document.getElementById('sun-timer').innerText = '-- год -- хв';
+      document.getElementById('sun-body').style.opacity = 0;
+
+      setStatus('ESP32 Server офлайн', 'red');
+    }
+
     let sunUpdateFlag = true;
     setInterval(() => { sunUpdateFlag = true; }, 30000);
 
     const sunState = { sr: null, ss: null, lastProgress: null };
-
     const SUN_UPDATE_STEP_SEC = 30;
     const SUN_ORANGE_STEPS = 10;
     const SUN_ORANGE_WINDOW_SEC = SUN_ORANGE_STEPS * SUN_UPDATE_STEP_SEC;
-
     const SUN_COLOR_YELLOW = '#FFD54A';
     const SUN_COLOR_ORANGE = '#FF9800';
-
-    // Відступ від крайніх точок дуги (в px) щоб сонце не накладалось на "СХІД/ЗАХІД"
-    const SUN_EDGE_PAD = 10;    // підбери 8..14 якщо захочеш
-    const SUN_RADIUS = 70;      // як у CSS дуги
-    const SUN_CENTER_Y = 105;   // як у твоєму коді (35 + 70)
-    const SUN_CENTER_X = 0;     // ми використовуємо calc(50% + ...)
+    const SUN_EDGE_PAD = 10;
+    const SUN_RADIUS = 70;
+    const SUN_CENTER_Y = 105;
+    const SUN_CENTER_X = 0;
 
     function toMin(t) {
       if (!t || typeof t !== 'string' || !t.includes(':')) return null;
@@ -418,13 +425,11 @@
       return hh * 60 + mm;
     }
     function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-
     function getDayWindow(nowStr, sr, ss) {
       const now0  = toMin(nowStr);
       const rise0 = toMin(sr);
       const set0  = toMin(ss);
       if (now0 === null || rise0 === null || set0 === null) return null;
-
       let now = now0, rise = rise0, set = set0;
       if (set <= rise) {
         set += 1440;
@@ -432,13 +437,11 @@
       }
       return { now, rise, set, now0, rise0, set0 };
     }
-
     function isDayByTime(nowStr, sr, ss) {
       const w = getDayWindow(nowStr, sr, ss);
       if (!w) return null;
       return (w.now >= w.rise && w.now <= w.set);
     }
-
     function getDayProgress(nowStr, sr, ss) {
       const w = getDayWindow(nowStr, sr, ss);
       if (!w) return null;
@@ -446,52 +449,37 @@
       if (len <= 0) return null;
       return clamp01((w.now - w.rise) / len);
     }
-
     function setSunColor(isOrange) {
       const sun = document.getElementById('sun-body');
       const col = isOrange ? SUN_COLOR_ORANGE : SUN_COLOR_YELLOW;
       sun.style.background = col;
       sun.style.boxShadow = `0 0 10px ${col}`;
     }
-
     function setSunByProgress(progress) {
       const sun = document.getElementById('sun-body');
-
-      // progress 0..1 -> angle PI..0
       const angle = Math.PI - (progress * Math.PI);
-
-      // стандартні координати по колу
       let x = Math.cos(angle) * SUN_RADIUS;
       let y = SUN_CENTER_Y - Math.sin(angle) * SUN_RADIUS;
-
-      // "обрізаємо" X в межах, щоб не заходило на крайні підписи
       const maxX = SUN_RADIUS - SUN_EDGE_PAD;
       if (x >  maxX) x =  maxX;
       if (x < -maxX) x = -maxX;
-
       sun.style.left = `calc(50% + ${x}px)`;
       sun.style.top  = `${y}px`;
     }
-
     function updateSun(nowStr, sr, ss) {
       const sun = document.getElementById('sun-body');
-
       const day = isDayByTime(nowStr, sr, ss);
       if (day === null) return;
-
       if (!day) { sun.style.opacity = 0; return; }
       sun.style.opacity = 1;
-
       const p = getDayProgress(nowStr, sr, ss);
       if (p === null) {
         setSunByProgress(sunState.lastProgress ?? 0.5);
         setSunColor(false);
         return;
       }
-
       sunState.lastProgress = p;
       setSunByProgress(p);
-
       const w = getDayWindow(nowStr, sr, ss);
       if (w) {
         const secFromRise = (w.now - w.rise) * 60;
@@ -503,31 +491,31 @@
         setSunColor(false);
       }
     }
-
     function calculateSunTimer(nowStr, sr, ss) {
       if (!nowStr || !sr || !ss) return;
       const now0  = toMin(nowStr);
       const rise0 = toMin(sr);
       const set0  = toMin(ss);
       if (now0 === null || rise0 === null || set0 === null) return;
-
       let now = now0, rise = rise0, set = set0;
       if (set <= rise) { set += 1440; if (now < rise) now += 1440; }
-
       let diff = 0, label = "";
       if (now >= rise && now < set) { label = "До заходу"; diff = set - now; }
       else { label = "До сходу"; diff = now < rise ? (rise - now) : (1440 - now0 + rise0); }
-
       document.getElementById('sun-status-label').innerText = label;
       document.getElementById('sun-timer').innerText = `${Math.floor(diff/60)} год ${diff%60} хв`;
     }
-    // ===== /SUN =====
 
-    client.on('connect', () => { client.subscribe('7091003_Checher_ESP32/all_data'); });
+    client.on('connect', () => {
+      setStatus('Підключення...', '#d58b00');
+      client.subscribe('7091003_Checher_ESP32/all_data');
+    });
 
     client.on('message', (topic, message) => {
       try {
         const data = JSON.parse(message.toString());
+        lastUpdate = Date.now();
+        setStatus('ESP32 Server онлайн', '#08DD08');
 
         document.getElementById('date').innerText = data.date || "...";
         document.getElementById('time').innerText = data.time || "...";
@@ -535,36 +523,47 @@
         if (data.korydor) {
           updateValue('t_kor', data.korydor.t, true, 't_kor_icon');
           updateValue('h_kor', data.korydor.h, false);
-          document.getElementById('pres').innerText = data.korydor.p;
+          document.getElementById('pres').innerText = data.korydor.p ?? '...';
         }
 
         Object.keys(mapping).forEach(key => {
           const htmlId = mapping[key];
           if (data[key]) {
             updateValue('t_' + htmlId, data[key].t, true, 't_' + htmlId + '_icon');
-            updateValue('h_' + htmlId, data[key].h, false);
 
-            const batLevel = document.getElementById('bat_level_' + htmlId);
-            const batText  = document.getElementById('bat_text_' + htmlId);
-
-            if (batLevel) {
-              batLevel.style.width = data[key].b + '%';
-              batLevel.style.backgroundColor = data[key].b < 20 ? 'red' : '#08DD08';
-              batText.innerText = data[key].b + '%';
+            if (data[key].t === 'N/A' || data[key].t === '...') {
+              setTextValue('h_' + htmlId, '...', '#555');
+              document.getElementById('rssi_' + htmlId).innerText = '..';
+              document.getElementById('bat_level_' + htmlId).style.width = '0%';
+              document.getElementById('bat_level_' + htmlId).style.backgroundColor = '#999';
+              document.getElementById('bat_text_' + htmlId).innerText = '..%';
+            } else {
+              updateValue('h_' + htmlId, data[key].h, false);
+              const batLevel = document.getElementById('bat_level_' + htmlId);
+              const batText  = document.getElementById('bat_text_' + htmlId);
+              if (batLevel) {
+                const bat = Number(data[key].b);
+                if (Number.isNaN(bat)) {
+                  batLevel.style.width = '0%';
+                  batLevel.style.backgroundColor = '#999';
+                  batText.innerText = '..%';
+                } else {
+                  batLevel.style.width = bat + '%';
+                  batLevel.style.backgroundColor = bat < 20 ? 'red' : '#08DD08';
+                  batText.innerText = bat + '%';
+                }
+              }
+              document.getElementById('rssi_' + htmlId).innerText = data[key].rssi ?? "..";
             }
-            document.getElementById('rssi_' + htmlId).innerText = data[key].rssi || "..";
           }
         });
 
         if (data.sun) {
           if (data.sun.sr) sunState.sr = data.sun.sr;
           if (data.sun.ss) sunState.ss = data.sun.ss;
-
           document.getElementById("sunrise-t").innerText = sunState.sr || "...";
           document.getElementById("sunset-t").innerText  = sunState.ss || "...";
-
           calculateSunTimer(data.time, sunState.sr, sunState.ss);
-
           if (sunUpdateFlag) {
             const nowStr = data.time || document.getElementById('time').innerText;
             updateSun(nowStr, sunState.sr, sunState.ss);
@@ -576,6 +575,24 @@
         console.error(e);
       }
     });
+
+    client.on('reconnect', () => {
+      setStatus('Перепідключення...', '#d58b00');
+    });
+
+    client.on('close', () => {
+      setStatus('Офлайн (з’єднання втрачено)', 'red');
+    });
+
+    client.on('error', () => {
+      setStatus('Помилка MQTT', 'red');
+    });
+
+    setInterval(() => {
+      if (Date.now() - lastUpdate > 20000) {
+        resetOffline();
+      }
+    }, 5000);
   </script>
 </body>
 </html>
