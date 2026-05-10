@@ -86,4 +86,262 @@
     }
 
     .radio-row{
-      display
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:1.05em;
+      font-weight:bold;
+    }
+
+    .delay-box{
+      margin-top:8px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .delay-hidden{
+      display:none;
+    }
+
+    .delay-input{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:2px solid black;
+      font-size:1.1em;
+      font-weight:bold;
+      text-align:center;
+      box-sizing:border-box;
+    }
+
+    .btn{
+      text-decoration:none;
+      background-color:#21B1FF;
+      color:yellow;
+      padding:12px 10px;
+      border-radius:14px;
+      border:2px solid black;
+      font-weight:bold;
+      width:100%;
+      font-size:1.15em;
+      text-align:center;
+      transition:0.3s;
+      display:inline-block;
+    }
+    .btn:hover{ background-color:#28a745; }
+    .btn:active{ background-color:yellow; color:#21B1FF; }
+
+    .bottom-area{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+    }
+
+    #status-server{
+      font-size:12px;
+      font-weight:bold;
+      margin:0;
+      color:#08DD08;
+      text-align:center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ЖИВЛЕННЯ RPi 5</h1>
+
+    <div class="card">
+      <span class="section-title">КНОПКА POWER</span>
+      <button id="power-btn" class="power-btn power-offline">RPi5 Offline</button>
+      <div class="info-row">
+        <span>Ping RPi5</span>
+        <span id="ping-status" class="value-red">Немає</span>
+      </div>
+      <div class="info-row">
+        <span>АКБ UPS:</span>
+        <span id="ups-voltage" class="value-green">--.-V</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="section-title">Режим після відновлення світла:</span>
+      <div class="mode-wrap">
+        <label class="radio-row">
+          <input type="radio" name="power-mode" id="mode-auto">
+          <span>Автоматично</span>
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="power-mode" id="mode-manual">
+          <span>Вручну</span>
+        </label>
+      </div>
+
+      <div id="delay-box" class="delay-box">
+        <span class="section-title" style="margin-bottom:0;">Затримка автоматичного вмикання:</span>
+        <input id="delay-val" class="delay-input" type="number" min="0" value="0" />
+        <a href="#" class="btn">Зберегти налаштування</a>
+      </div>
+    </div>
+
+    <div class="bottom-area">
+      <a href="#" class="btn">Відкрити сервер RPi 5</a>
+      <a href="index.html" class="btn">На головну</a>
+      <div id="status-server">● Підключення...</div>
+    </div>
+  </main>
+
+  <script>
+    const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+    const MQTT_TOPIC = '7091003_Checher_ESP32/all_data';
+    const OFFLINE_TIMEOUT = 20000;
+    const FIT_MAX_SCALE = 1.06;
+
+    const powerBtn = document.getElementById('power-btn');
+    const pingStatusEl = document.getElementById('ping-status');
+    const upsVoltageEl = document.getElementById('ups-voltage');
+    const modeAutoEl = document.getElementById('mode-auto');
+    const modeManualEl = document.getElementById('mode-manual');
+    const delayValEl = document.getElementById('delay-val');
+    const delayBoxEl = document.getElementById('delay-box');
+    const statusEl = document.getElementById('status-server');
+
+    let lastUpdate = Date.now();
+
+    function fitToViewport() {
+      const main = document.querySelector('main');
+      if (!main) return;
+      main.style.transform = 'scale(1)';
+      requestAnimationFrame(() => {
+        const rect = main.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const scaleH = vh / rect.height;
+        const scaleW = vw / rect.width;
+        let scale = Math.min(scaleH, scaleW);
+        scale = Math.min(FIT_MAX_SCALE, scale);
+        main.style.transform = `scale(${scale})`;
+      });
+    }
+
+    function setStatus(text, color) {
+      statusEl.innerText = '● ' + text;
+      statusEl.style.color = color;
+    }
+
+    function updateDelayVisibility() {
+      if (modeAutoEl.checked) {
+        delayBoxEl.classList.remove('delay-hidden');
+      } else {
+        delayBoxEl.classList.add('delay-hidden');
+      }
+    }
+
+    function setPowerState(rpiGpio, rpiPing) {
+      powerBtn.classList.remove('power-offline', 'power-booting', 'power-online');
+
+      if (Number(rpiGpio) === 0) {
+        powerBtn.classList.add('power-offline');
+        powerBtn.innerText = 'RPi5 Offline';
+      } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 0) {
+        powerBtn.classList.add('power-booting');
+        powerBtn.innerText = 'RPi5 Booting';
+      } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 1) {
+        powerBtn.classList.add('power-online');
+        powerBtn.innerText = 'RPi5 Online';
+      } else {
+        powerBtn.classList.add('power-offline');
+        powerBtn.innerText = 'RPi5 Offline';
+      }
+    }
+
+    function resetOffline() {
+      powerBtn.classList.remove('power-offline', 'power-booting', 'power-online');
+      powerBtn.classList.add('power-offline');
+      powerBtn.innerText = 'RPi5 Offline';
+      pingStatusEl.innerText = 'Немає';
+      pingStatusEl.className = 'value-red';
+      upsVoltageEl.innerText = '--.-V';
+      upsVoltageEl.className = 'value-green';
+      modeAutoEl.checked = false;
+      modeManualEl.checked = false;
+      delayValEl.value = 0;
+      delayBoxEl.classList.add('delay-hidden');
+      setStatus('ESP32 Server офлайн', 'red');
+    }
+
+    modeAutoEl.addEventListener('change', updateDelayVisibility);
+    modeManualEl.addEventListener('change', updateDelayVisibility);
+
+    const client = mqtt.connect(MQTT_URL, {
+      clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
+    });
+
+    client.on('connect', () => {
+      setStatus('Підключення...', '#d58b00');
+      client.subscribe(MQTT_TOPIC);
+    });
+
+    client.on('message', (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        lastUpdate = Date.now();
+        setStatus('ESP32 Server онлайн', '#08DD08');
+
+        setPowerState(data.rpi_gpio, data.rpi_ping);
+
+        if (Number(data.rpi_ping) === 1) {
+          pingStatusEl.innerText = 'Є';
+          pingStatusEl.className = 'value-green';
+        } else {
+          pingStatusEl.innerText = 'Немає';
+          pingStatusEl.className = 'value-red';
+        }
+
+        if (data.ups_voltage !== undefined) {
+          upsVoltageEl.innerText = Number(data.ups_voltage).toFixed(1) + 'V';
+        } else {
+          upsVoltageEl.innerText = '--.-V';
+        }
+
+        if (Number(data.power_mode) === 1) {
+          modeAutoEl.checked = true;
+          modeManualEl.checked = false;
+        } else if (Number(data.power_mode) === 0) {
+          modeAutoEl.checked = false;
+          modeManualEl.checked = true;
+        }
+
+        if (data.delay_val !== undefined) {
+          delayValEl.value = data.delay_val;
+        }
+
+        updateDelayVisibility();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    client.on('reconnect', () => setStatus('Перепідключення...', '#d58b00'));
+    client.on('close', () => setStatus('Офлайн (з’єднання втрачено)', 'red'));
+    client.on('error', () => setStatus('Помилка MQTT', 'red'));
+
+    setInterval(() => {
+      if (Date.now() - lastUpdate > OFFLINE_TIMEOUT) {
+        resetOffline();
+      }
+    }, 5000);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fitToViewport();
+      setTimeout(() => {
+        fitToViewport();
+        updateDelayVisibility();
+      }, 0);
+    });
+    window.addEventListener('resize', fitToViewport);
+    window.addEventListener('orientationchange', fitToViewport);
+  </script>
+</body>
+</html>
