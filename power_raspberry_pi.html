@@ -129,15 +129,15 @@
     .info-two-col{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:8px;
-      margin-top:6px;
+      gap:6px;
+      margin-top:4px;
     }
 
     .info-cell{
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap:8px;
+      gap:4px;
       font-size:1em;
       font-weight:bold;
       min-width:0;
@@ -146,27 +146,38 @@
     .label-wrap{
       color:#000;
       white-space:nowrap;
+      margin-right:2px;
     }
 
     .value-green{ color:#007F0E; }
     .value-red{ color:red; }
-    .value-dark{ color:#000; }
 
     .power-line{
-      margin-top:6px;
+      margin-top:2px;
+      margin-bottom:8px;
       text-align:center;
       font-size:1em;
       font-weight:bold;
+      line-height:1.2;
     }
 
     .power-ok{ color:#007F0E; }
     .power-bad{ color:red; }
 
+    .mode-title{
+      color:#8F44FF;
+      font-weight:bold;
+      font-size:0.92em;
+      margin-top:2px;
+      margin-bottom:6px;
+      text-align:center;
+    }
+
     .mode-row{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      margin-top:6px;
+      margin-top:4px;
       align-items:center;
     }
 
@@ -236,7 +247,7 @@
 
       <div class="info-two-col">
         <div class="info-cell">
-          <span class="label-wrap">Ping RPi5</span>
+          <span class="label-wrap">Ping RPi5:</span>
           <span id="ping-status" class="value-red">Немає</span>
         </div>
         <div class="info-cell">
@@ -252,11 +263,9 @@
     </div>
 
     <div class="card">
-      <span class="section-title">Режим після відновлення світла:</span>
+      <div id="power-status-text" class="power-line power-bad">Електроенергії зараз немає</div>
 
-      <div class="power-line">
-        <span id="power-status-text" class="power-bad">Світла немає</span>
-      </div>
+      <div class="mode-title">Режим після відновлення світла:</div>
 
       <div class="mode-row">
         <label class="radio-row">
@@ -390,11 +399,11 @@
       latestPowerStatus = Number(powerStatus);
 
       if (latestPowerStatus === 1) {
-        powerStatusTextEl.innerText = 'Світло є';
-        powerStatusTextEl.className = 'power-ok';
+        powerStatusTextEl.innerText = 'Електроенергія зараз є';
+        powerStatusTextEl.className = 'power-line power-ok';
       } else {
-        powerStatusTextEl.innerText = 'Світла немає';
-        powerStatusTextEl.className = 'power-bad';
+        powerStatusTextEl.innerText = 'Електроенергії зараз немає';
+        powerStatusTextEl.className = 'power-line power-bad';
       }
     }
 
@@ -422,8 +431,8 @@
       upsVoltageEl.innerText = '--.-V';
       upsVoltageEl.className = 'value-green';
 
-      powerStatusTextEl.innerText = 'Світла немає';
-      powerStatusTextEl.className = 'power-bad';
+      powerStatusTextEl.innerText = 'Електроенергії зараз немає';
+      powerStatusTextEl.className = 'power-line power-bad';
 
       modeAutoEl.checked = false;
       modeManualEl.checked = false;
@@ -630,7 +639,6 @@
               upsVoltageEl.innerText = '--.-V';
             }
 
-            // Не перезаписуємо поля налаштувань, якщо користувач зараз редагує
             if (!isEditingSettings) {
               if (Number(data.rpi.power_mode) === 1) {
                 modeAutoEl.checked = true;
