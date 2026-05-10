@@ -169,9 +169,7 @@
     function fitToViewport() {
       const main = document.querySelector('main');
       if (!main) return;
-
       main.style.transform = 'scale(1)';
-
       requestAnimationFrame(() => {
         const rect = main.getBoundingClientRect();
         const vh = window.innerHeight;
@@ -199,25 +197,23 @@
         startX = e.touches[0].clientX;
         pulling = true;
         triggered = false;
-      }, { passive: true });
+      }, {passive:true});
 
       document.addEventListener('touchmove', (e) => {
         if (!pulling || triggered) return;
         if (!e.touches || e.touches.length !== 1) return;
-
         const dy = e.touches[0].clientY - startY;
         const dx = Math.abs(e.touches[0].clientX - startX);
-
         if (dx > MAX_X_DRIFT) return;
         if (dy > PULL_DIST) {
           triggered = true;
           setTimeout(() => location.reload(), 50);
         }
-      }, { passive: true });
+      }, {passive:true});
 
       document.addEventListener('touchend', () => {
         pulling = false;
-      }, { passive: true });
+      }, {passive:true});
     })();
 
     function setServerStatus(text, className) {
@@ -308,4 +304,14 @@
 
     setInterval(() => {
       if (Date.now() - lastUpdate > OFFLINE_TIMEOUT) {
-        reset
+        resetOffline();
+      }
+    }, 5000);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fitToViewport();
+      setTimeout(fitToViewport, 0);
+    });
+  </script>
+</body>
+</html>
