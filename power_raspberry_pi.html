@@ -56,7 +56,6 @@
       text-align:center;
     }
 
-    /* RPi status indicator - intentionally not button-like */
     .status-indicator{
       width:100%;
       border-radius:16px;
@@ -76,7 +75,7 @@
       color:yellow;
     }
 
-    .rpi-connecting{
+    .rpi-booting{
       background:#FFD500;
       color:#21B1FF;
     }
@@ -250,7 +249,6 @@
   <script>
     const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
     const MQTT_TOPIC = '7091003_Checher_ESP32/all_data';
-    const MQTT_CMD_TOPIC = '7091003_Checher_ESP32/rpi_cmd';
     const OFFLINE_TIMEOUT = 20000;
     const FIT_MAX_SCALE = 1.06;
 
@@ -269,9 +267,6 @@
     const statusEl = document.getElementById('status-server');
 
     let lastUpdate = Date.now();
-
-    // Цю змінну потім треба буде оновлювати реальною браузерною перевіркою Raspberry Pi
-    // 0 = немає відповіді, 1 = Raspberry Pi доступна по мережі
     let browserRpiPing = 0;
 
     function fitToViewport() {
@@ -301,31 +296,20 @@
       saveSettingsBtn.disabled = !enabled;
     }
 
-    function showSuccess(msg) {
-      alert(msg);
-    }
-
-    function showError(msg) {
-      alert(msg);
-    }
-
     function updateDelayVisibility() {
-      if (modeAutoEl.checked) {
-        delayBoxEl.classList.remove('delay-hidden');
-      } else {
-        delayBoxEl.classList.add('delay-hidden');
-      }
+      if (modeAutoEl.checked) delayBoxEl.classList.remove('delay-hidden');
+      else delayBoxEl.classList.add('delay-hidden');
     }
 
     function setRpiStatus(rpiGpio, browserPing) {
-      rpiStatusBox.classList.remove('rpi-offline', 'rpi-connecting', 'rpi-online');
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
 
       if (Number(rpiGpio) === 0) {
         rpiStatusBox.classList.add('rpi-offline');
         rpiStatusBox.innerText = 'RPi5 Offline';
       } else if (Number(rpiGpio) === 1 && Number(browserPing) === 0) {
-        rpiStatusBox.classList.add('rpi-connecting');
-        rpiStatusBox.innerText = 'RPi5 Підключення';
+        rpiStatusBox.classList.add('rpi-booting');
+        rpiStatusBox.innerText = 'RPi5 Booting';
       } else if (Number(rpiGpio) === 1 && Number(browserPing) === 1) {
         rpiStatusBox.classList.add('rpi-online');
         rpiStatusBox.innerText = 'RPi5 Online';
@@ -346,7 +330,7 @@
     }
 
     function resetOffline() {
-      rpiStatusBox.classList.remove('rpi-offline', 'rpi-connecting', 'rpi-online');
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
       rpiStatusBox.classList.add('rpi-offline');
       rpiStatusBox.innerText = 'RPi5 Offline';
 
@@ -372,50 +356,16 @@
       clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
     });
 
-    function publishCommand(payload, successMsg) {
-      if (!client || !client.connected) {
-        showError('MQTT не підключений');
-        return;
-      }
-
-      const ok = client.publish(MQTT_CMD_TOPIC, JSON.stringify(payload));
-      if (ok) {
-        showSuccess(successMsg);
-      } else {
-        showError('Не вдалося відправити команду');
-      }
-    }
-
     shutdownBtn.addEventListener('click', () => {
-      publishCommand(
-        { cmd: 'shutdown' },
-        'Команда Shutdown успішно відправлена'
-      );
+      alert('Керуючі команди ще не підключені.');
     });
 
     powerBtn.addEventListener('click', () => {
-      publishCommand(
-        { cmd: 'power' },
-        'Команда Power успішно відправлена'
-      );
+      alert('Керуючі команди ще не підключені.');
     });
 
     saveSettingsBtn.addEventListener('click', () => {
-      const mode = modeAutoEl.checked ? 1 : 0;
-      const delay = Number(delayValEl.value || 0);
-
-      publishCommand(
-        {
-          cmd: 'save_rpi_settings',
-          rpi: {
-            power_mode: mode,
-            delay_val: delay
-          }
-        },
-        mode === 1
-          ? 'Затримка автоматичного ввімкнення успішно відправлена'
-          : 'Режим ручного ввімкнення успішно відправлений'
-      );
+      alert('Збереження налаштувань ще не підключене.');
     });
 
     client.on('connect', () => {
@@ -428,7 +378,6 @@
       try {
         const data = JSON.parse(message.toString());
         lastUpdate = Date.now();
-
         setStatus('ESP32 Server online', '#08DD08');
         setControlsEnabled(true);
 
