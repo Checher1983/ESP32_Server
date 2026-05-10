@@ -1,95 +1,259 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Server Index</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
-    <style>
-        * { user-select: none; -webkit-user-select: none; }
-        .btn {
-            text-decoration: none; background-color: #21B1FF; color: yellow;
-            padding: 12px 10px; border-radius: 8px; border: 2px solid black;
-            font-weight: bold; width: 260px; display: inline-block;
-            transition: 0.3s; text-align: center; cursor: pointer; font-family: sans-serif;
-        }
-        .btn:hover { background-color: #28a745; }
-        .btn:active { background-color: yellow; color: #21B1FF; }
-        #status-footer { font-size: 11px; font-weight: bold; color: gray; margin-top: 20px; font-family: sans-serif; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Server Index</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+  <style>
+    * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
+
+    body{
+      background-color:#E4EAF6;
+      margin:0;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
+      font-family:sans-serif;
+      overflow:hidden;
+    }
+
+    main{
+      width:100%;
+      max-width:560px;
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      text-align:center;
+      transform-origin: top center;
+      will-change: transform;
+    }
+
+    h1{
+      color:#333;
+      font-size:1.5em;
+      margin:0;
+      text-transform:uppercase;
+    }
+
+    .top-card{
+      padding:10px 6px;
+      border-radius:14px;
+      text-align:center;
+      background: linear-gradient(180deg, #B2F2BB 0%, #E6FFEA 100%) !important;
+      border:1.5px solid #99d9a4;
+      box-shadow:0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .top-label{
+      display:block;
+      font-size:0.9em;
+      color:#555;
+      font-weight:bold;
+      margin-bottom:4px;
+    }
+
+    .top-val{
+      font-size:1.17em; /* близько до оригінального вигляду */
+      font-weight:bold;
+      color:#007F0E;
+    }
+
+    .menu{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .btn{
+      text-decoration:none;
+      background-color:#21B1FF;
+      color:yellow;
+      padding:12px 10px;
+      border-radius:14px;
+      border:2px solid black;
+      font-weight:bold;
+      width:100%;
+      font-size:1.15em;
+      text-align:center;
+      transition:0.3s;
+      display:inline-block;
+      font-family:sans-serif;
+    }
+
+    .btn:hover{ background-color:#28a745; }
+    .btn:active{ background-color:yellow; color:#21B1FF; }
+
+    #status-server{
+      font-size:12px;
+      font-weight:bold;
+      margin:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      text-align:center;
+    }
+
+    .status-server-online { color:#08DD08; }
+    .status-warn { color:#d58b00; }
+    .status-offline { color:red; }
+    .status-part {
+      display:inline-block;
+      white-space:nowrap;
+    }
+  </style>
 </head>
-<body style="background-color: #E4EAF6; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif;">
-    <main style="text-align: center; padding: 20px;">
-        <header>
-            <h1 style="color: #333;">ESP32 SERVER</h1>
-        </header>
-        <h3 style="color: black;">Дата: <span id="date-val" style="color: red; font-weight: bold;">...</span></h3>
-        <h3 style="color: black; margin-bottom: 30px;">Час: <span id="time-val" style="color: red; font-weight: bold;">...</span></h3>
-        <div style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
-            <a href="barometer.html" class="btn">Метеостанція</a>
-            <a href="power_raspberry_pi.html" class="btn">Живлення Raspberry Pi 5</a>
-            <a href="statistics.html" class="btn">Статистика відключень</a>
-        </div>
-        <div id="status-footer">Статус: <span id="mqtt-status">Підключення...</span></div>
-    </main>
-    <script>
-        const statusText = document.getElementById('mqtt-status');
-        const dateEl = document.getElementById('date-val');
-        const timeEl = document.getElementById('time-val');
-        let lastUpdate = Date.now();
+<body>
+  <main>
+    <h1>ESP32 SERVER</h1>
 
-        function startMQTT() {
-            const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-                clientId: 'Web_Index_' + Math.random().toString(16).substr(2, 8)
-            });
+    <div class="top-card">
+      <span class="top-label">ДАТА</span>
+      <span id="date-val" class="top-val">...</span>
+    </div>
 
-            const topic = '7091003_Checher_ESP32/all_data';
+    <div class="top-card">
+      <span class="top-label">ЧАС</span>
+      <span id="time-val" class="top-val">...</span>
+    </div>
 
-            client.on('connect', () => {
-                client.subscribe(topic);
-            });
+    <div class="menu">
+      <a href="barometer.html" class="btn">Метеостанція</a>
+      <a href="Power_Rasberry_PI.html" class="btn">Живлення Raspberry Pi 5</a>
+      <a href="Statistics.html" class="btn">Статистика відключень</a>
+    </div>
 
-            client.on('message', (t, message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    lastUpdate = Date.now();
-                    statusText.innerText = 'Онлайн';
-                    statusText.parentElement.style.color = '#08DD08';
-                    dateEl.innerText = data.date || '...';
-                    timeEl.innerText = data.time || '...';
-                } catch (e) {
-                    console.error("JSON Error", e);
-                }
-            });
+    <div id="status-server">
+      <span id="server-status" class="status-part status-warn">● Підключення...</span>
+    </div>
+  </main>
 
-            client.on('reconnect', () => {
-                statusText.innerText = 'Перепідключення...';
-                statusText.parentElement.style.color = '#d58b00';
-            });
+  <script>
+    const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+    const MQTT_TOPIC = '7091003_Checher_ESP32/all_data';
+    const OFFLINE_TIMEOUT = 20000;
+    const FIT_MAX_SCALE = 1.06;
 
-            client.on('close', () => {
-                statusText.innerText = 'Офлайн (з’єднання втрачено)';
-                statusText.parentElement.style.color = 'red';
-            });
+    const serverStatusEl = document.getElementById('server-status');
+    const dateEl = document.getElementById('date-val');
+    const timeEl = document.getElementById('time-val');
 
-            client.on('error', () => {
-                statusText.innerText = 'Помилка MQTT';
-                statusText.parentElement.style.color = 'red';
-            });
+    let lastUpdate = Date.now();
+
+    function fitToViewport() {
+      const main = document.querySelector('main');
+      if (!main) return;
+
+      main.style.transform = 'scale(1)';
+
+      requestAnimationFrame(() => {
+        const rect = main.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const scaleH = vh / rect.height;
+        const scaleW = vw / rect.width;
+        let scale = Math.min(scaleH, scaleW);
+        scale = Math.min(FIT_MAX_SCALE, scale);
+        main.style.transform = `scale(${scale})`;
+      });
+    }
+
+    window.addEventListener('resize', fitToViewport);
+    window.addEventListener('orientationchange', fitToViewport);
+
+    (function enablePullToRefresh() {
+      let startY = 0, startX = 0;
+      let pulling = false, triggered = false;
+      const PULL_DIST = 90;
+      const MAX_X_DRIFT = 40;
+
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+        pulling = true;
+        triggered = false;
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!pulling || triggered) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        const dy = e.touches[0].clientY - startY;
+        const dx = Math.abs(e.touches[0].clientX - startX);
+
+        if (dx > MAX_X_DRIFT) return;
+        if (dy > PULL_DIST) {
+          triggered = true;
+          setTimeout(() => location.reload(), 50);
         }
+      }, { passive: true });
 
-        setInterval(() => {
-            if (Date.now() - lastUpdate > 15000) {
-                dateEl.innerText = "...";
-                timeEl.innerText = "...";
-                statusText.innerText = 'Офлайн (ESP32 вимкнена)';
-                statusText.parentElement.style.color = 'red';
-            }
-        }, 5000);
+      document.addEventListener('touchend', () => {
+        pulling = false;
+      }, { passive: true });
+    })();
 
-        window.onload = () => {
-            if (typeof mqtt !== 'undefined') startMQTT();
-        };
-    </script>
+    function setServerStatus(text, className) {
+      serverStatusEl.innerText = text;
+      serverStatusEl.className = 'status-part ' + className;
+    }
+
+    function resetOffline() {
+      dateEl.innerText = '...';
+      timeEl.innerText = '...';
+      setServerStatus('● Офлайн (з’єднання втрачено)', 'status-offline');
+    }
+
+    const client = mqtt.connect(MQTT_URL, {
+      clientId: 'Web_Index_' + Math.random().toString(16).substr(2, 8)
+    });
+
+    client.on('connect', () => {
+      setServerStatus('● Підключення...', 'status-warn');
+      client.subscribe(MQTT_TOPIC);
+    });
+
+    client.on('message', (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        lastUpdate = Date.now();
+
+        setServerStatus('● ESP32 Server online', 'status-server-online');
+
+        dateEl.innerText = data.date || '...';
+        timeEl.innerText = data.time || '...';
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    client.on('reconnect', () => {
+      setServerStatus('● Перепідключення...', 'status-warn');
+    });
+
+    client.on('close', () => {
+      setServerStatus('● Офлайн (з’єднання втрачено)', 'status-offline');
+    });
+
+    client.on('error', () => {
+      setServerStatus('● Помилка MQTT', 'status-offline');
+    });
+
+    setInterval(() => {
+      if (Date.now() - lastUpdate > OFFLINE_TIMEOUT) {
+        resetOffline();
+      }
+    }, 5000);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fitToViewport();
+      setTimeout(fitToViewport, 0);
+    });
+  </script>
 </body>
 </html>
