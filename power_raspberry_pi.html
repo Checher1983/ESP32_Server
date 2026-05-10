@@ -7,6 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
   <style>
     * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
+
     body{
       background-color:#E4EAF6;
       margin:0;
@@ -17,6 +18,7 @@
       font-family:sans-serif;
       overflow:hidden;
     }
+
     main{
       width:100%;
       max-width:560px;
@@ -27,6 +29,7 @@
       transform-origin: top center;
       will-change: transform;
     }
+
     h1{
       color:#333;
       font-size:1.5em;
@@ -53,21 +56,35 @@
       text-align:center;
     }
 
-    .status-box{
+    /* RPi status indicator - intentionally not button-like */
+    .status-indicator{
       width:100%;
-      border-radius:18px;
+      border-radius:16px;
       padding:16px 12px;
       font-size:1.35em;
       font-weight:bold;
-      color:white;
       font-family:sans-serif;
       border:2px solid black;
       text-align:center;
-      background:#d9534f;
+      box-shadow:none;
+      cursor:default;
+      user-select:none;
     }
-    .rpi-offline{ background:#d9534f; }
-    .rpi-booting{ background:#e0b400; color:black; }
-    .rpi-online{ background:#21B1FF; }
+
+    .rpi-offline{
+      background:#8E8E8E;
+      color:yellow;
+    }
+
+    .rpi-connecting{
+      background:#FFD500;
+      color:#21B1FF;
+    }
+
+    .rpi-online{
+      background:#08AA08;
+      color:yellow;
+    }
 
     .dual-btn-row{
       display:grid;
@@ -92,15 +109,17 @@
       font-family:sans-serif;
       cursor:pointer;
     }
+
     .btn:hover{ background-color:#28a745; }
     .btn:active{ background-color:yellow; color:#21B1FF; }
 
     .btn-power{
-      background-color:#d9534f;
+      background-color:red;
       color:yellow;
     }
+
     .btn-power:hover{ background-color:#28a745; }
-    .btn-power:active{ background-color:yellow; color:#d9534f; }
+    .btn-power:active{ background-color:yellow; color:red; }
 
     .btn:disabled{
       opacity:0.5;
@@ -180,7 +199,7 @@
 
     <div class="card">
       <span class="section-title">СТАТУС RASPBERRY PI5</span>
-      <div id="rpi-status-box" class="status-box rpi-offline">RPi5 Offline</div>
+      <div id="rpi-status-box" class="status-indicator rpi-offline">RPi5 Offline</div>
 
       <div class="info-row">
         <span>Ping RPi5</span>
@@ -251,6 +270,10 @@
 
     let lastUpdate = Date.now();
 
+    // Цю змінну потім треба буде оновлювати реальною браузерною перевіркою Raspberry Pi
+    // 0 = немає відповіді, 1 = Raspberry Pi доступна по мережі
+    let browserRpiPing = 0;
+
     function fitToViewport() {
       const main = document.querySelector('main');
       if (!main) return;
@@ -294,16 +317,16 @@
       }
     }
 
-    function setRpiStatus(rpiGpio, rpiPing) {
-      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
+    function setRpiStatus(rpiGpio, browserPing) {
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-connecting', 'rpi-online');
 
       if (Number(rpiGpio) === 0) {
         rpiStatusBox.classList.add('rpi-offline');
         rpiStatusBox.innerText = 'RPi5 Offline';
-      } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 0) {
-        rpiStatusBox.classList.add('rpi-booting');
-        rpiStatusBox.innerText = 'RPi5 Booting';
-      } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 1) {
+      } else if (Number(rpiGpio) === 1 && Number(browserPing) === 0) {
+        rpiStatusBox.classList.add('rpi-connecting');
+        rpiStatusBox.innerText = 'RPi5 Підключення';
+      } else if (Number(rpiGpio) === 1 && Number(browserPing) === 1) {
         rpiStatusBox.classList.add('rpi-online');
         rpiStatusBox.innerText = 'RPi5 Online';
       } else {
@@ -312,8 +335,18 @@
       }
     }
 
+    function updatePingText(browserPing) {
+      if (Number(browserPing) === 1) {
+        pingStatusEl.innerText = 'Є';
+        pingStatusEl.className = 'value-green';
+      } else {
+        pingStatusEl.innerText = 'Немає';
+        pingStatusEl.className = 'value-red';
+      }
+    }
+
     function resetOffline() {
-      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-connecting', 'rpi-online');
       rpiStatusBox.classList.add('rpi-offline');
       rpiStatusBox.innerText = 'RPi5 Offline';
 
@@ -329,7 +362,7 @@
       delayBoxEl.classList.add('delay-hidden');
 
       setControlsEnabled(false);
-      setStatus('ESP32 Server офлайн', 'red');
+      setStatus('Офлайн (з’єднання втрачено)', 'red');
     }
 
     modeAutoEl.addEventListener('change', updateDelayVisibility);
@@ -386,7 +419,7 @@
     });
 
     client.on('connect', () => {
-      setStatus('ESP32 Server онлайн', '#08DD08');
+      setStatus('ESP32 Server online', '#08DD08');
       setControlsEnabled(true);
       client.subscribe(MQTT_TOPIC);
     });
@@ -395,19 +428,13 @@
       try {
         const data = JSON.parse(message.toString());
         lastUpdate = Date.now();
-        setStatus('ESP32 Server онлайн', '#08DD08');
+
+        setStatus('ESP32 Server online', '#08DD08');
         setControlsEnabled(true);
 
         if (data.rpi) {
-          setRpiStatus(data.rpi.gpio, data.rpi.ping);
-
-          if (Number(data.rpi.ping) === 1) {
-            pingStatusEl.innerText = 'Є';
-            pingStatusEl.className = 'value-green';
-          } else {
-            pingStatusEl.innerText = 'Немає';
-            pingStatusEl.className = 'value-red';
-          }
+          setRpiStatus(data.rpi.gpio, browserRpiPing);
+          updatePingText(browserRpiPing);
 
           if (data.rpi.ups_voltage !== undefined) {
             upsVoltageEl.innerText = Number(data.rpi.ups_voltage).toFixed(1) + 'V';
