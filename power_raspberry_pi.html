@@ -236,8 +236,20 @@
       font-size:12px;
       font-weight:bold;
       margin:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
       text-align:center;
-      color:#08DD08;
+    }
+
+    .status-server-online { color:#08DD08; }
+    .status-warn { color:#d58b00; }
+    .status-offline { color:red; }
+    .status-part {
+      display:inline-block;
+      white-space:nowrap;
     }
   </style>
 </head>
@@ -294,7 +306,9 @@
     <div class="bottom-area">
       <button id="open-rpi-btn" class="btn" type="button" disabled>Відкрити сервер RPi 5</button>
       <a href="index.html" class="btn">На головну</a>
-      <div id="status-server">● Підключення...</div>
+      <div id="status-server">
+        <span id="server-status" class="status-part status-warn">● Підключення...</span>
+      </div>
     </div>
   </main>
 
@@ -325,7 +339,8 @@
     const modeManualEl = document.getElementById('mode-manual');
     const delayValEl = document.getElementById('delay-val');
     const delayBoxEl = document.getElementById('delay-box');
-    const statusEl = document.getElementById('status-server');
+
+    const serverStatusEl = document.getElementById('server-status');
 
     let lastUpdate = Date.now();
     let browserRpiPing = 0;
@@ -350,9 +365,45 @@
       });
     }
 
-    function setStatus(text, color) {
-      statusEl.innerText = '● ' + text;
-      statusEl.style.color = color;
+    window.addEventListener('resize', fitToViewport);
+    window.addEventListener('orientationchange', fitToViewport);
+
+    (function enablePullToRefresh() {
+      let startY = 0, startX = 0;
+      let pulling = false, triggered = false;
+      const PULL_DIST = 90;
+      const MAX_X_DRIFT = 40;
+
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+        pulling = true;
+        triggered = false;
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!pulling || triggered) return;
+        if (!e.touches || e.touches.length !== 1) return;
+
+        const dy = e.touches[0].clientY - startY;
+        const dx = Math.abs(e.touches[0].clientX - startX);
+
+        if (dx > MAX_X_DRIFT) return;
+        if (dy > PULL_DIST) {
+          triggered = true;
+          setTimeout(() => location.reload(), 50);
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', () => {
+        pulling = false;
+      }, { passive: true });
+    })();
+
+    function setServerStatus(text, className) {
+      serverStatusEl.innerText = text;
+      serverStatusEl.className = 'status-part ' + className;
     }
 
     function setControlsEnabled(enabled) {
@@ -445,7 +496,7 @@
 
       setControlsEnabled(false);
       openRpiBtn.disabled = true;
-      setStatus('Офлайн (з’єднання втрачено)', 'red');
+      setServerStatus('● Офлайн (з’єднання втрачено)', 'status-offline');
     }
 
     function markEditing() {
@@ -603,7 +654,7 @@
     });
 
     client.on('connect', () => {
-      setStatus('ESP32 Server online', '#08DD08');
+      setServerStatus('● Підключення...', 'status-warn');
       setControlsEnabled(true);
       client.subscribe(MQTT_TOPIC);
       client.subscribe(MQTT_ACK_TOPIC);
@@ -626,7 +677,7 @@
 
         if (topic === MQTT_TOPIC) {
           lastUpdate = Date.now();
-          setStatus('ESP32 Server online', '#08DD08');
+          setServerStatus('● ESP32 Server online', 'status-server-online');
           setControlsEnabled(true);
 
           if (data.power_status !== undefined) {
@@ -666,17 +717,17 @@
     });
 
     client.on('reconnect', () => {
-      setStatus('Перепідключення...', '#d58b00');
+      setServerStatus('● Перепідключення...', 'status-warn');
       setControlsEnabled(false);
     });
 
     client.on('close', () => {
-      setStatus('Офлайн (з’єднання втрачено)', 'red');
+      setServerStatus('● Офлайн (з’єднання втрачено)', 'status-offline');
       setControlsEnabled(false);
     });
 
     client.on('error', () => {
-      setStatus('Помилка MQTT', 'red');
+      setServerStatus('● Помилка MQTT', 'status-offline');
       setControlsEnabled(false);
     });
 
@@ -700,9 +751,6 @@
         checkRpiHttp();
       }, 0);
     });
-
-    window.addEventListener('resize', fitToViewport);
-    window.addEventListener('orientationchange', fitToViewport);
   </script>
 </body>
 </html>
