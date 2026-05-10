@@ -32,14 +32,14 @@
 
     h1{
       color:#333;
-      font-size:1.5em;
+      font-size:1.45em;
       margin:0;
       text-transform:uppercase;
       text-align:center;
     }
 
     .card{
-      padding:12px;
+      padding:10px 12px;
       border-radius:20px;
       position:relative;
       box-shadow:0 2px 4px rgba(0,0,0,0.05);
@@ -50,7 +50,7 @@
     .section-title{
       color:#8F44FF;
       font-weight:bold;
-      font-size:0.95em;
+      font-size:0.92em;
       margin-bottom:8px;
       display:block;
       text-align:center;
@@ -59,8 +59,8 @@
     .status-indicator{
       width:100%;
       border-radius:16px;
-      padding:16px 12px;
-      font-size:1.35em;
+      padding:12px 10px;
+      font-size:1.22em;
       font-weight:bold;
       font-family:sans-serif;
       border:2px solid black;
@@ -68,6 +68,7 @@
       box-shadow:none;
       cursor:default;
       user-select:none;
+      margin-bottom:8px;
     }
 
     .rpi-offline{
@@ -101,7 +102,7 @@
       border:2px solid black;
       font-weight:bold;
       width:100%;
-      font-size:1.15em;
+      font-size:1.12em;
       text-align:center;
       transition:0.3s;
       display:inline-block;
@@ -125,37 +126,62 @@
       cursor:not-allowed;
     }
 
-    .info-row{
+    .info-two-col{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:6px;
+    }
+
+    .info-cell{
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:8px;
-      font-size:1.05em;
+      font-size:1em;
       font-weight:bold;
-      margin-top:6px;
-      flex-wrap:wrap;
+      min-width:0;
+    }
+
+    .label-wrap{
+      color:#000;
+      white-space:nowrap;
     }
 
     .value-green{ color:#007F0E; }
     .value-red{ color:red; }
+    .value-dark{ color:#000; }
 
-    .mode-wrap{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:8px;
+    .power-line{
+      margin-top:6px;
+      text-align:center;
+      font-size:1em;
+      font-weight:bold;
+    }
+
+    .power-ok{ color:#007F0E; }
+    .power-bad{ color:red; }
+
+    .mode-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:6px;
+      align-items:center;
     }
 
     .radio-row{
       display:flex;
       align-items:center;
-      gap:10px;
-      font-size:1.05em;
+      justify-content:center;
+      gap:8px;
+      font-size:1.02em;
       font-weight:bold;
+      white-space:nowrap;
     }
 
     .delay-box{
-      margin-top:8px;
+      margin-top:12px;
       display:flex;
       flex-direction:column;
       gap:8px;
@@ -163,6 +189,14 @@
 
     .delay-hidden{
       display:none;
+    }
+
+    .delay-label{
+      color:#8F44FF;
+      font-weight:bold;
+      font-size:0.95em;
+      text-align:center;
+      margin-top:2px;
     }
 
     .delay-input{
@@ -187,8 +221,8 @@
       font-size:12px;
       font-weight:bold;
       margin:0;
-      color:#08DD08;
       text-align:center;
+      color:#08DD08;
     }
   </style>
 </head>
@@ -200,14 +234,15 @@
       <span class="section-title">СТАТУС RASPBERRY PI5</span>
       <div id="rpi-status-box" class="status-indicator rpi-offline">RPi5 Offline</div>
 
-      <div class="info-row">
-        <span>Ping RPi5</span>
-        <span id="ping-status" class="value-red">Немає</span>
-      </div>
-
-      <div class="info-row">
-        <span>АКБ UPS:</span>
-        <span id="ups-voltage" class="value-green">--.-V</span>
+      <div class="info-two-col">
+        <div class="info-cell">
+          <span class="label-wrap">Ping RPi5</span>
+          <span id="ping-status" class="value-red">Немає</span>
+        </div>
+        <div class="info-cell">
+          <span class="label-wrap">АКБ UPS:</span>
+          <span id="ups-voltage" class="value-green">--.-V</span>
+        </div>
       </div>
 
       <div class="dual-btn-row">
@@ -219,7 +254,11 @@
     <div class="card">
       <span class="section-title">Режим після відновлення світла:</span>
 
-      <div class="mode-wrap">
+      <div class="power-line">
+        <span id="power-status-text" class="power-bad">Світла немає</span>
+      </div>
+
+      <div class="mode-row">
         <label class="radio-row">
           <input type="radio" name="power-mode" id="mode-auto">
           <span>Автоматично</span>
@@ -232,7 +271,7 @@
       </div>
 
       <div id="delay-box" class="delay-box">
-        <span class="section-title" style="margin-bottom:0;">Затримка автоматичного вмикання:</span>
+        <div class="delay-label">Затримка автоматичного вмикання, сек:</div>
         <input id="delay-val" class="delay-input" type="number" min="0" value="0" />
       </div>
 
@@ -262,6 +301,7 @@
     const rpiStatusBox = document.getElementById('rpi-status-box');
     const pingStatusEl = document.getElementById('ping-status');
     const upsVoltageEl = document.getElementById('ups-voltage');
+    const powerStatusTextEl = document.getElementById('power-status-text');
 
     const shutdownBtn = document.getElementById('shutdown-btn');
     const powerBtn = document.getElementById('power-btn');
@@ -277,8 +317,9 @@
     let lastUpdate = Date.now();
     let browserRpiPing = 0;
     let latestRpiGpio = 0;
-
+    let latestPowerStatus = 0;
     let pendingAck = null;
+    let isEditingSettings = false;
 
     function fitToViewport() {
       const main = document.querySelector('main');
@@ -302,9 +343,10 @@
     }
 
     function setControlsEnabled(enabled) {
-      shutdownBtn.disabled = !enabled;
-      powerBtn.disabled = !enabled;
-      saveSettingsBtn.disabled = !enabled;
+      const lockedByAck = !!pendingAck;
+      shutdownBtn.disabled = !enabled || lockedByAck;
+      powerBtn.disabled = !enabled || lockedByAck;
+      saveSettingsBtn.disabled = !enabled || lockedByAck;
       updateOpenRpiButton();
     }
 
@@ -344,6 +386,18 @@
       }
     }
 
+    function updatePowerStatusText(powerStatus) {
+      latestPowerStatus = Number(powerStatus);
+
+      if (latestPowerStatus === 1) {
+        powerStatusTextEl.innerText = 'Світло є';
+        powerStatusTextEl.className = 'power-ok';
+      } else {
+        powerStatusTextEl.innerText = 'Світла немає';
+        powerStatusTextEl.className = 'power-bad';
+      }
+    }
+
     function isRpiOnline() {
       return latestRpiGpio === 1 && browserRpiPing === 1;
     }
@@ -355,6 +409,8 @@
     function resetOffline() {
       latestRpiGpio = 0;
       browserRpiPing = 0;
+      latestPowerStatus = 0;
+      isEditingSettings = false;
 
       rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
       rpiStatusBox.classList.add('rpi-offline');
@@ -366,6 +422,9 @@
       upsVoltageEl.innerText = '--.-V';
       upsVoltageEl.className = 'value-green';
 
+      powerStatusTextEl.innerText = 'Світла немає';
+      powerStatusTextEl.className = 'power-bad';
+
       modeAutoEl.checked = false;
       modeManualEl.checked = false;
       delayValEl.value = 0;
@@ -374,6 +433,10 @@
       setControlsEnabled(false);
       openRpiBtn.disabled = true;
       setStatus('Офлайн (з’єднання втрачено)', 'red');
+    }
+
+    function markEditing() {
+      isEditingSettings = true;
     }
 
     function makeCmdId(prefix) {
@@ -385,6 +448,7 @@
         clearTimeout(pendingAck.timer);
       }
       pendingAck = null;
+      setControlsEnabled(client && client.connected);
     }
 
     function startAckWait(payload, successMessage) {
@@ -395,7 +459,7 @@
         retries: 0,
         timer: null
       };
-
+      setControlsEnabled(client && client.connected);
       scheduleAckRetry();
     }
 
@@ -465,8 +529,19 @@
       setRpiStatus(latestRpiGpio, browserRpiPing);
     }
 
-    modeAutoEl.addEventListener('change', updateDelayVisibility);
-    modeManualEl.addEventListener('change', updateDelayVisibility);
+    modeAutoEl.addEventListener('change', () => {
+      markEditing();
+      updateDelayVisibility();
+    });
+
+    modeManualEl.addEventListener('change', () => {
+      markEditing();
+      updateDelayVisibility();
+    });
+
+    delayValEl.addEventListener('input', () => {
+      markEditing();
+    });
 
     shutdownBtn.addEventListener('click', () => {
       const payload = {
@@ -528,6 +603,9 @@
         if (topic === MQTT_ACK_TOPIC) {
           if (pendingAck && data.cmd_id === pendingAck.cmdId && data.status === 'ok') {
             alert(pendingAck.successMessage);
+            if (data.cmd === 'save_rpi_settings') {
+              isEditingSettings = false;
+            }
             clearPendingAck();
           }
           return;
@@ -538,9 +616,11 @@
           setStatus('ESP32 Server online', '#08DD08');
           setControlsEnabled(true);
 
+          if (data.power_status !== undefined) {
+            updatePowerStatusText(data.power_status);
+          }
+
           if (data.rpi) {
-            // Адаптовано під твій фактичний JSON
-            // rpi: { gpio, ups_voltage, power_mode, delay_val, buttons }
             setRpiStatus(data.rpi.gpio, browserRpiPing);
             updatePingText(browserRpiPing);
 
@@ -550,19 +630,22 @@
               upsVoltageEl.innerText = '--.-V';
             }
 
-            if (Number(data.rpi.power_mode) === 1) {
-              modeAutoEl.checked = true;
-              modeManualEl.checked = false;
-            } else if (Number(data.rpi.power_mode) === 0) {
-              modeAutoEl.checked = false;
-              modeManualEl.checked = true;
-            }
+            // Не перезаписуємо поля налаштувань, якщо користувач зараз редагує
+            if (!isEditingSettings) {
+              if (Number(data.rpi.power_mode) === 1) {
+                modeAutoEl.checked = true;
+                modeManualEl.checked = false;
+              } else if (Number(data.rpi.power_mode) === 0) {
+                modeAutoEl.checked = false;
+                modeManualEl.checked = true;
+              }
 
-            if (data.rpi.delay_val !== undefined) {
-              delayValEl.value = data.rpi.delay_val;
-            }
+              if (data.rpi.delay_val !== undefined) {
+                delayValEl.value = data.rpi.delay_val;
+              }
 
-            updateDelayVisibility();
+              updateDelayVisibility();
+            }
           }
         }
       } catch (e) {
