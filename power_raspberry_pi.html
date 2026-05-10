@@ -27,7 +27,13 @@
       transform-origin: top center;
       will-change: transform;
     }
-    h1{ color:#333; font-size:1.5em; margin:0; text-transform:uppercase; text-align:center; }
+    h1{
+      color:#333;
+      font-size:1.5em;
+      margin:0;
+      text-transform:uppercase;
+      text-align:center;
+    }
 
     .card{
       padding:12px;
@@ -47,9 +53,8 @@
       text-align:center;
     }
 
-    .power-btn{
+    .status-box{
       width:100%;
-      border:none;
       border-radius:18px;
       padding:16px 12px;
       font-size:1.35em;
@@ -57,12 +62,50 @@
       color:white;
       font-family:sans-serif;
       border:2px solid black;
+      text-align:center;
       background:#d9534f;
     }
+    .rpi-offline{ background:#d9534f; }
+    .rpi-booting{ background:#e0b400; color:black; }
+    .rpi-online{ background:#21B1FF; }
 
-    .power-offline{ background:#d9534f; }
-    .power-booting{ background:#e0b400; color:black; }
-    .power-online{ background:#21B1FF; }
+    .dual-btn-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .btn{
+      text-decoration:none;
+      background-color:#21B1FF;
+      color:yellow;
+      padding:12px 10px;
+      border-radius:14px;
+      border:2px solid black;
+      font-weight:bold;
+      width:100%;
+      font-size:1.15em;
+      text-align:center;
+      transition:0.3s;
+      display:inline-block;
+      font-family:sans-serif;
+      cursor:pointer;
+    }
+    .btn:hover{ background-color:#28a745; }
+    .btn:active{ background-color:yellow; color:#21B1FF; }
+
+    .btn-power{
+      background-color:#d9534f;
+      color:yellow;
+    }
+    .btn-power:hover{ background-color:#28a745; }
+    .btn-power:active{ background-color:yellow; color:#d9534f; }
+
+    .btn:disabled{
+      opacity:0.5;
+      cursor:not-allowed;
+    }
 
     .info-row{
       display:flex;
@@ -115,23 +158,6 @@
       box-sizing:border-box;
     }
 
-    .btn{
-      text-decoration:none;
-      background-color:#21B1FF;
-      color:yellow;
-      padding:12px 10px;
-      border-radius:14px;
-      border:2px solid black;
-      font-weight:bold;
-      width:100%;
-      font-size:1.15em;
-      text-align:center;
-      transition:0.3s;
-      display:inline-block;
-    }
-    .btn:hover{ background-color:#28a745; }
-    .btn:active{ background-color:yellow; color:#21B1FF; }
-
     .bottom-area{
       display:flex;
       flex-direction:column;
@@ -153,25 +179,34 @@
     <h1>ЖИВЛЕННЯ RPi 5</h1>
 
     <div class="card">
-      <span class="section-title">КНОПКА POWER</span>
-      <button id="power-btn" class="power-btn power-offline">RPi5 Offline</button>
+      <span class="section-title">СТАТУС RASPBERRY PI5</span>
+      <div id="rpi-status-box" class="status-box rpi-offline">RPi5 Offline</div>
+
       <div class="info-row">
         <span>Ping RPi5</span>
         <span id="ping-status" class="value-red">Немає</span>
       </div>
+
       <div class="info-row">
         <span>АКБ UPS:</span>
         <span id="ups-voltage" class="value-green">--.-V</span>
+      </div>
+
+      <div class="dual-btn-row">
+        <button id="shutdown-btn" class="btn" type="button" disabled>Shutdown</button>
+        <button id="power-btn" class="btn btn-power" type="button" disabled>Power</button>
       </div>
     </div>
 
     <div class="card">
       <span class="section-title">Режим після відновлення світла:</span>
+
       <div class="mode-wrap">
         <label class="radio-row">
           <input type="radio" name="power-mode" id="mode-auto">
           <span>Автоматично</span>
         </label>
+
         <label class="radio-row">
           <input type="radio" name="power-mode" id="mode-manual">
           <span>Вручну</span>
@@ -181,8 +216,9 @@
       <div id="delay-box" class="delay-box">
         <span class="section-title" style="margin-bottom:0;">Затримка автоматичного вмикання:</span>
         <input id="delay-val" class="delay-input" type="number" min="0" value="0" />
-        <a href="#" class="btn">Зберегти налаштування</a>
       </div>
+
+      <button id="save-settings-btn" class="btn" type="button" disabled>Зберегти налаштування</button>
     </div>
 
     <div class="bottom-area">
@@ -195,12 +231,18 @@
   <script>
     const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
     const MQTT_TOPIC = '7091003_Checher_ESP32/all_data';
+    const MQTT_CMD_TOPIC = '7091003_Checher_ESP32/rpi_cmd';
     const OFFLINE_TIMEOUT = 20000;
     const FIT_MAX_SCALE = 1.06;
 
-    const powerBtn = document.getElementById('power-btn');
+    const rpiStatusBox = document.getElementById('rpi-status-box');
     const pingStatusEl = document.getElementById('ping-status');
     const upsVoltageEl = document.getElementById('ups-voltage');
+
+    const shutdownBtn = document.getElementById('shutdown-btn');
+    const powerBtn = document.getElementById('power-btn');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+
     const modeAutoEl = document.getElementById('mode-auto');
     const modeManualEl = document.getElementById('mode-manual');
     const delayValEl = document.getElementById('delay-val');
@@ -230,6 +272,20 @@
       statusEl.style.color = color;
     }
 
+    function setControlsEnabled(enabled) {
+      shutdownBtn.disabled = !enabled;
+      powerBtn.disabled = !enabled;
+      saveSettingsBtn.disabled = !enabled;
+    }
+
+    function showSuccess(msg) {
+      alert(msg);
+    }
+
+    function showError(msg) {
+      alert(msg);
+    }
+
     function updateDelayVisibility() {
       if (modeAutoEl.checked) {
         delayBoxEl.classList.remove('delay-hidden');
@@ -238,36 +294,41 @@
       }
     }
 
-    function setPowerState(rpiGpio, rpiPing) {
-      powerBtn.classList.remove('power-offline', 'power-booting', 'power-online');
+    function setRpiStatus(rpiGpio, rpiPing) {
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
 
       if (Number(rpiGpio) === 0) {
-        powerBtn.classList.add('power-offline');
-        powerBtn.innerText = 'RPi5 Offline';
+        rpiStatusBox.classList.add('rpi-offline');
+        rpiStatusBox.innerText = 'RPi5 Offline';
       } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 0) {
-        powerBtn.classList.add('power-booting');
-        powerBtn.innerText = 'RPi5 Booting';
+        rpiStatusBox.classList.add('rpi-booting');
+        rpiStatusBox.innerText = 'RPi5 Booting';
       } else if (Number(rpiGpio) === 1 && Number(rpiPing) === 1) {
-        powerBtn.classList.add('power-online');
-        powerBtn.innerText = 'RPi5 Online';
+        rpiStatusBox.classList.add('rpi-online');
+        rpiStatusBox.innerText = 'RPi5 Online';
       } else {
-        powerBtn.classList.add('power-offline');
-        powerBtn.innerText = 'RPi5 Offline';
+        rpiStatusBox.classList.add('rpi-offline');
+        rpiStatusBox.innerText = 'RPi5 Offline';
       }
     }
 
     function resetOffline() {
-      powerBtn.classList.remove('power-offline', 'power-booting', 'power-online');
-      powerBtn.classList.add('power-offline');
-      powerBtn.innerText = 'RPi5 Offline';
+      rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
+      rpiStatusBox.classList.add('rpi-offline');
+      rpiStatusBox.innerText = 'RPi5 Offline';
+
       pingStatusEl.innerText = 'Немає';
       pingStatusEl.className = 'value-red';
+
       upsVoltageEl.innerText = '--.-V';
       upsVoltageEl.className = 'value-green';
+
       modeAutoEl.checked = false;
       modeManualEl.checked = false;
       delayValEl.value = 0;
       delayBoxEl.classList.add('delay-hidden');
+
+      setControlsEnabled(false);
       setStatus('ESP32 Server офлайн', 'red');
     }
 
@@ -278,8 +339,55 @@
       clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
     });
 
+    function publishCommand(payload, successMsg) {
+      if (!client || !client.connected) {
+        showError('MQTT не підключений');
+        return;
+      }
+
+      const ok = client.publish(MQTT_CMD_TOPIC, JSON.stringify(payload));
+      if (ok) {
+        showSuccess(successMsg);
+      } else {
+        showError('Не вдалося відправити команду');
+      }
+    }
+
+    shutdownBtn.addEventListener('click', () => {
+      publishCommand(
+        { cmd: 'shutdown' },
+        'Команда Shutdown успішно відправлена'
+      );
+    });
+
+    powerBtn.addEventListener('click', () => {
+      publishCommand(
+        { cmd: 'power' },
+        'Команда Power успішно відправлена'
+      );
+    });
+
+    saveSettingsBtn.addEventListener('click', () => {
+      const mode = modeAutoEl.checked ? 1 : 0;
+      const delay = Number(delayValEl.value || 0);
+
+      publishCommand(
+        {
+          cmd: 'save_rpi_settings',
+          rpi: {
+            power_mode: mode,
+            delay_val: delay
+          }
+        },
+        mode === 1
+          ? 'Затримка автоматичного ввімкнення успішно відправлена'
+          : 'Режим ручного ввімкнення успішно відправлений'
+      );
+    });
+
     client.on('connect', () => {
-      setStatus('Підключення...', '#d58b00');
+      setStatus('ESP32 Server онлайн', '#08DD08');
+      setControlsEnabled(true);
       client.subscribe(MQTT_TOPIC);
     });
 
@@ -288,44 +396,58 @@
         const data = JSON.parse(message.toString());
         lastUpdate = Date.now();
         setStatus('ESP32 Server онлайн', '#08DD08');
+        setControlsEnabled(true);
 
-        setPowerState(data.rpi_gpio, data.rpi_ping);
+        if (data.rpi) {
+          setRpiStatus(data.rpi.gpio, data.rpi.ping);
 
-        if (Number(data.rpi_ping) === 1) {
-          pingStatusEl.innerText = 'Є';
-          pingStatusEl.className = 'value-green';
-        } else {
-          pingStatusEl.innerText = 'Немає';
-          pingStatusEl.className = 'value-red';
+          if (Number(data.rpi.ping) === 1) {
+            pingStatusEl.innerText = 'Є';
+            pingStatusEl.className = 'value-green';
+          } else {
+            pingStatusEl.innerText = 'Немає';
+            pingStatusEl.className = 'value-red';
+          }
+
+          if (data.rpi.ups_voltage !== undefined) {
+            upsVoltageEl.innerText = Number(data.rpi.ups_voltage).toFixed(1) + 'V';
+          } else {
+            upsVoltageEl.innerText = '--.-V';
+          }
+
+          if (Number(data.rpi.power_mode) === 1) {
+            modeAutoEl.checked = true;
+            modeManualEl.checked = false;
+          } else if (Number(data.rpi.power_mode) === 0) {
+            modeAutoEl.checked = false;
+            modeManualEl.checked = true;
+          }
+
+          if (data.rpi.delay_val !== undefined) {
+            delayValEl.value = data.rpi.delay_val;
+          }
+
+          updateDelayVisibility();
         }
-
-        if (data.ups_voltage !== undefined) {
-          upsVoltageEl.innerText = Number(data.ups_voltage).toFixed(1) + 'V';
-        } else {
-          upsVoltageEl.innerText = '--.-V';
-        }
-
-        if (Number(data.power_mode) === 1) {
-          modeAutoEl.checked = true;
-          modeManualEl.checked = false;
-        } else if (Number(data.power_mode) === 0) {
-          modeAutoEl.checked = false;
-          modeManualEl.checked = true;
-        }
-
-        if (data.delay_val !== undefined) {
-          delayValEl.value = data.delay_val;
-        }
-
-        updateDelayVisibility();
       } catch (e) {
         console.error(e);
       }
     });
 
-    client.on('reconnect', () => setStatus('Перепідключення...', '#d58b00'));
-    client.on('close', () => setStatus('Офлайн (з’єднання втрачено)', 'red'));
-    client.on('error', () => setStatus('Помилка MQTT', 'red'));
+    client.on('reconnect', () => {
+      setStatus('Перепідключення...', '#d58b00');
+      setControlsEnabled(false);
+    });
+
+    client.on('close', () => {
+      setStatus('Офлайн (з’єднання втрачено)', 'red');
+      setControlsEnabled(false);
+    });
+
+    client.on('error', () => {
+      setStatus('Помилка MQTT', 'red');
+      setControlsEnabled(false);
+    });
 
     setInterval(() => {
       if (Date.now() - lastUpdate > OFFLINE_TIMEOUT) {
@@ -338,8 +460,10 @@
       setTimeout(() => {
         fitToViewport();
         updateDelayVisibility();
+        setControlsEnabled(false);
       }, 0);
     });
+
     window.addEventListener('resize', fitToViewport);
     window.addEventListener('orientationchange', fitToViewport);
   </script>
