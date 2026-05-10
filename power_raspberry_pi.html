@@ -240,7 +240,7 @@
     </div>
 
     <div class="bottom-area">
-      <a href="#" class="btn">Відкрити сервер RPi 5</a>
+      <button id="open-rpi-btn" class="btn" type="button" disabled>Відкрити сервер RPi 5</button>
       <a href="index.html" class="btn">На головну</a>
       <div id="status-server">● Підключення...</div>
     </div>
@@ -249,8 +249,15 @@
   <script>
     const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
     const MQTT_TOPIC = '7091003_Checher_ESP32/all_data';
+    const MQTT_CMD_TOPIC = '7091003_Checher_ESP32/rpi_cmd';
+    const MQTT_ACK_TOPIC = '7091003_Checher_ESP32/rpi_ack';
+
+    const RPI_HTTP_URL = 'http://192.168.31.249';
     const OFFLINE_TIMEOUT = 20000;
     const FIT_MAX_SCALE = 1.06;
+    const ACK_TIMEOUT_MS = 4000;
+    const ACK_MAX_RETRIES = 3;
+    const BROWSER_PING_INTERVAL_MS = 5000;
 
     const rpiStatusBox = document.getElementById('rpi-status-box');
     const pingStatusEl = document.getElementById('ping-status');
@@ -259,6 +266,7 @@
     const shutdownBtn = document.getElementById('shutdown-btn');
     const powerBtn = document.getElementById('power-btn');
     const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const openRpiBtn = document.getElementById('open-rpi-btn');
 
     const modeAutoEl = document.getElementById('mode-auto');
     const modeManualEl = document.getElementById('mode-manual');
@@ -268,6 +276,9 @@
 
     let lastUpdate = Date.now();
     let browserRpiPing = 0;
+    let latestRpiGpio = 0;
+
+    let pendingAck = null;
 
     function fitToViewport() {
       const main = document.querySelector('main');
@@ -294,6 +305,7 @@
       shutdownBtn.disabled = !enabled;
       powerBtn.disabled = !enabled;
       saveSettingsBtn.disabled = !enabled;
+      updateOpenRpiButton();
     }
 
     function updateDelayVisibility() {
@@ -302,21 +314,24 @@
     }
 
     function setRpiStatus(rpiGpio, browserPing) {
+      latestRpiGpio = Number(rpiGpio);
       rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
 
-      if (Number(rpiGpio) === 0) {
+      if (latestRpiGpio === 0) {
         rpiStatusBox.classList.add('rpi-offline');
         rpiStatusBox.innerText = 'RPi5 Offline';
-      } else if (Number(rpiGpio) === 1 && Number(browserPing) === 0) {
+      } else if (latestRpiGpio === 1 && Number(browserPing) === 0) {
         rpiStatusBox.classList.add('rpi-booting');
         rpiStatusBox.innerText = 'RPi5 Booting';
-      } else if (Number(rpiGpio) === 1 && Number(browserPing) === 1) {
+      } else if (latestRpiGpio === 1 && Number(browserPing) === 1) {
         rpiStatusBox.classList.add('rpi-online');
         rpiStatusBox.innerText = 'RPi5 Online';
       } else {
         rpiStatusBox.classList.add('rpi-offline');
         rpiStatusBox.innerText = 'RPi5 Offline';
       }
+
+      updateOpenRpiButton();
     }
 
     function updatePingText(browserPing) {
@@ -329,7 +344,18 @@
       }
     }
 
+    function isRpiOnline() {
+      return latestRpiGpio === 1 && browserRpiPing === 1;
+    }
+
+    function updateOpenRpiButton() {
+      openRpiBtn.disabled = !isRpiOnline();
+    }
+
     function resetOffline() {
+      latestRpiGpio = 0;
+      browserRpiPing = 0;
+
       rpiStatusBox.classList.remove('rpi-offline', 'rpi-booting', 'rpi-online');
       rpiStatusBox.classList.add('rpi-offline');
       rpiStatusBox.innerText = 'RPi5 Offline';
@@ -346,64 +372,198 @@
       delayBoxEl.classList.add('delay-hidden');
 
       setControlsEnabled(false);
+      openRpiBtn.disabled = true;
       setStatus('Офлайн (з’єднання втрачено)', 'red');
+    }
+
+    function makeCmdId(prefix) {
+      return `${Date.now()}_${prefix}_${Math.random().toString(16).slice(2, 8)}`;
+    }
+
+    function clearPendingAck() {
+      if (pendingAck && pendingAck.timer) {
+        clearTimeout(pendingAck.timer);
+      }
+      pendingAck = null;
+    }
+
+    function startAckWait(payload, successMessage) {
+      pendingAck = {
+        cmdId: payload.cmd_id,
+        payload,
+        successMessage,
+        retries: 0,
+        timer: null
+      };
+
+      scheduleAckRetry();
+    }
+
+    function scheduleAckRetry() {
+      if (!pendingAck) return;
+
+      pendingAck.timer = setTimeout(() => {
+        if (!pendingAck) return;
+
+        if (pendingAck.retries >= ACK_MAX_RETRIES) {
+          alert('Не вдалося отримати підтвердження від ESP32');
+          clearPendingAck();
+          return;
+        }
+
+        pendingAck.retries++;
+        const ok = client.publish(MQTT_CMD_TOPIC, JSON.stringify(pendingAck.payload));
+        if (!ok) {
+          alert('Не вдалося повторно відправити команду');
+          clearPendingAck();
+          return;
+        }
+
+        scheduleAckRetry();
+      }, ACK_TIMEOUT_MS);
+    }
+
+    function sendCommand(payload, successMessage) {
+      if (!client || !client.connected) {
+        alert('MQTT не підключений');
+        return;
+      }
+
+      if (pendingAck) {
+        alert('Дочекайся завершення попередньої команди');
+        return;
+      }
+
+      const ok = client.publish(MQTT_CMD_TOPIC, JSON.stringify(payload));
+      if (!ok) {
+        alert('Не вдалося відправити команду');
+        return;
+      }
+
+      startAckWait(payload, successMessage);
+    }
+
+    async function checkRpiHttp() {
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 2000);
+
+        await fetch(RPI_HTTP_URL, {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-store',
+          signal: ctrl.signal
+        });
+
+        clearTimeout(timeout);
+        browserRpiPing = 1;
+      } catch (e) {
+        browserRpiPing = 0;
+      }
+
+      updatePingText(browserRpiPing);
+      setRpiStatus(latestRpiGpio, browserRpiPing);
     }
 
     modeAutoEl.addEventListener('change', updateDelayVisibility);
     modeManualEl.addEventListener('change', updateDelayVisibility);
 
-    const client = mqtt.connect(MQTT_URL, {
-      clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
-    });
-
     shutdownBtn.addEventListener('click', () => {
-      alert('Керуючі команди ще не підключені.');
+      const payload = {
+        cmd: 'shutdown',
+        cmd_id: makeCmdId('shutdown')
+      };
+      sendCommand(payload, 'Команда Shutdown успішно відправлена');
     });
 
     powerBtn.addEventListener('click', () => {
-      alert('Керуючі команди ще не підключені.');
+      const payload = {
+        cmd: 'power',
+        cmd_id: makeCmdId('power')
+      };
+      sendCommand(payload, 'Команда Power успішно відправлена');
     });
 
     saveSettingsBtn.addEventListener('click', () => {
-      alert('Збереження налаштувань ще не підключене.');
+      const mode = modeAutoEl.checked ? 1 : 0;
+      const delay = Number(delayValEl.value || 0);
+
+      const payload = {
+        cmd: 'save_rpi_settings',
+        cmd_id: makeCmdId('save'),
+        rpi: {
+          power_mode: mode,
+          delay_val: delay
+        }
+      };
+
+      sendCommand(
+        payload,
+        mode === 1
+          ? 'Затримка автоматичного ввімкнення успішно відправлена'
+          : 'Режим ручного ввімкнення успішно відправлений'
+      );
+    });
+
+    openRpiBtn.addEventListener('click', () => {
+      if (!isRpiOnline()) return;
+      window.open(RPI_HTTP_URL, '_blank');
+    });
+
+    const client = mqtt.connect(MQTT_URL, {
+      clientId: 'Web_RPi_' + Math.random().toString(16).substr(2, 8)
     });
 
     client.on('connect', () => {
       setStatus('ESP32 Server online', '#08DD08');
       setControlsEnabled(true);
       client.subscribe(MQTT_TOPIC);
+      client.subscribe(MQTT_ACK_TOPIC);
     });
 
     client.on('message', (topic, message) => {
       try {
         const data = JSON.parse(message.toString());
-        lastUpdate = Date.now();
-        setStatus('ESP32 Server online', '#08DD08');
-        setControlsEnabled(true);
 
-        if (data.rpi) {
-          setRpiStatus(data.rpi.gpio, browserRpiPing);
-          updatePingText(browserRpiPing);
-
-          if (data.rpi.ups_voltage !== undefined) {
-            upsVoltageEl.innerText = Number(data.rpi.ups_voltage).toFixed(1) + 'V';
-          } else {
-            upsVoltageEl.innerText = '--.-V';
+        if (topic === MQTT_ACK_TOPIC) {
+          if (pendingAck && data.cmd_id === pendingAck.cmdId && data.status === 'ok') {
+            alert(pendingAck.successMessage);
+            clearPendingAck();
           }
+          return;
+        }
 
-          if (Number(data.rpi.power_mode) === 1) {
-            modeAutoEl.checked = true;
-            modeManualEl.checked = false;
-          } else if (Number(data.rpi.power_mode) === 0) {
-            modeAutoEl.checked = false;
-            modeManualEl.checked = true;
+        if (topic === MQTT_TOPIC) {
+          lastUpdate = Date.now();
+          setStatus('ESP32 Server online', '#08DD08');
+          setControlsEnabled(true);
+
+          if (data.rpi) {
+            // Адаптовано під твій фактичний JSON
+            // rpi: { gpio, ups_voltage, power_mode, delay_val, buttons }
+            setRpiStatus(data.rpi.gpio, browserRpiPing);
+            updatePingText(browserRpiPing);
+
+            if (data.rpi.ups_voltage !== undefined) {
+              upsVoltageEl.innerText = Number(data.rpi.ups_voltage).toFixed(1) + 'V';
+            } else {
+              upsVoltageEl.innerText = '--.-V';
+            }
+
+            if (Number(data.rpi.power_mode) === 1) {
+              modeAutoEl.checked = true;
+              modeManualEl.checked = false;
+            } else if (Number(data.rpi.power_mode) === 0) {
+              modeAutoEl.checked = false;
+              modeManualEl.checked = true;
+            }
+
+            if (data.rpi.delay_val !== undefined) {
+              delayValEl.value = data.rpi.delay_val;
+            }
+
+            updateDelayVisibility();
           }
-
-          if (data.rpi.delay_val !== undefined) {
-            delayValEl.value = data.rpi.delay_val;
-          }
-
-          updateDelayVisibility();
         }
       } catch (e) {
         console.error(e);
@@ -431,12 +591,18 @@
       }
     }, 5000);
 
+    setInterval(() => {
+      checkRpiHttp();
+    }, BROWSER_PING_INTERVAL_MS);
+
     document.addEventListener('DOMContentLoaded', () => {
       fitToViewport();
       setTimeout(() => {
         fitToViewport();
         updateDelayVisibility();
         setControlsEnabled(false);
+        updateOpenRpiButton();
+        checkRpiHttp();
       }, 0);
     });
 
